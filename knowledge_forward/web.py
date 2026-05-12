@@ -905,7 +905,7 @@ INDEX_HTML = """<!doctype html>
       </div>
       <div>
         <label for="sourceNames">Source</label>
-        <input id="sourceNames" type="text" autocomplete="off" placeholder="knowledge_01_data">
+        <input id="sourceNames" type="text" autocomplete="off" placeholder="user_notes">
       </div>
     </div>
     <div id="filterStatus" class="filter-status"></div>
