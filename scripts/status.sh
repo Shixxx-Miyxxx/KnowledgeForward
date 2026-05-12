@@ -4,12 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 PYTHON="$REPO_ROOT/.venv/bin/python"
-PID_FILE="$REPO_ROOT/tmp/run/knowledgeforward.pid"
-OLLAMA_PID_FILE="$REPO_ROOT/tmp/run/ollama.pid"
-OLLAMA_MARKER_FILE="$REPO_ROOT/tmp/run/ollama.managed"
 PORT="8765"
 HEALTH_URL="http://127.0.0.1:${PORT}/health"
 OLLAMA_TAGS_URL="http://127.0.0.1:11434/api/tags"
+
+# shellcheck source=scripts/runtime_env.sh
+source "$SCRIPT_DIR/runtime_env.sh"
 
 section() {
   printf '\n== %s ==\n' "$*"
@@ -114,7 +114,7 @@ import urllib.request
 from knowledge_forward.config import load_config
 
 try:
-    config = load_config("config.yaml")
+    config = load_config()
     request = urllib.request.Request(
         "http://127.0.0.1:8765/health",
         headers={"Authorization": "Bearer " + config.auth.token},
@@ -210,9 +210,9 @@ def matches_model(requested: str, available: set[str]) -> bool:
 
 
 try:
-    config = load_config("config.yaml")
+    config = load_config()
 except ConfigError:
-    print("CONFIG_ERROR\tconfig.yaml could not be validated")
+    print("CONFIG_ERROR\tconfig file could not be validated")
     sys.exit(0)
 
 try:
@@ -313,12 +313,31 @@ show_tailscale() {
 show_git_safety() {
   local git_status
 
-  if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
-    status_line "config.yaml Git state" "TRACKED (should be untracked)"
-  elif git check-ignore -q config.yaml; then
-    status_line "config.yaml Git state" "untracked and ignored"
+  status_line "Runtime config" "$CONFIG_PATH"
+  status_line "Runtime home" "$RUNTIME_HOME"
+
+  if [ "$RUNTIME_IS_EXTERNAL" = "1" ]; then
+    if path_is_inside_repo "$CONFIG_PATH" || path_is_inside_repo "$RUNTIME_HOME"; then
+      status_line "Runtime location" "inside public repo (should be outside)"
+    else
+      status_line "Runtime location" "external"
+    fi
   else
-    status_line "config.yaml Git state" "untracked but not ignored"
+    status_line "Runtime location" "legacy repo-local (prefer KNOWLEDGE_FORWARD_HOME outside repo)"
+  fi
+
+  if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
+    status_line "repo config.yaml Git state" "TRACKED (should be untracked)"
+  elif git check-ignore -q config.yaml; then
+    status_line "repo config.yaml Git state" "untracked and ignored"
+  else
+    status_line "repo config.yaml Git state" "untracked but not ignored"
+  fi
+
+  if [ -f "$REPO_ROOT/config.yaml" ] || [ -d "$REPO_ROOT/data" ] || [ -d "$REPO_ROOT/tmp" ]; then
+    status_line "Repo-local runtime files" "present; do not publish by folder copy"
+  else
+    status_line "Repo-local runtime files" "absent"
   fi
 
   if git ls-files -- tmp/private_test_vault | grep -q .; then
@@ -347,9 +366,9 @@ from knowledge_forward.config import ConfigError, load_config
 from knowledge_forward.source_safety import safe_source_status_lines
 
 try:
-    config = load_config("config.yaml")
+    config = load_config()
 except ConfigError:
-    print("allowed_sources\tconfig.yaml could not be validated")
+    print("allowed_sources\tconfig file could not be validated")
     sys.exit(0)
 
 lines = safe_source_status_lines(config)
@@ -363,6 +382,7 @@ PY
 
 main() {
   cd "$REPO_ROOT"
+  resolve_runtime_env
   section "KnowledgeForward"
   show_knowledgeforward_process
   show_health

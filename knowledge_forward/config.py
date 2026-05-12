@@ -20,6 +20,8 @@ INSECURE_AUTH_TOKENS = frozenset(
         "replace-with-a-long-random-token",
     }
 )
+CONFIG_PATH_ENV = "KNOWLEDGE_FORWARD_CONFIG"
+RUNTIME_HOME_ENV = "KNOWLEDGE_FORWARD_HOME"
 
 
 @dataclass(frozen=True)
@@ -87,8 +89,23 @@ class AppConfig:
     allowed_sources: tuple[SourceConfig, ...]
 
 
-def load_config(config_path: str | Path = "config.yaml") -> AppConfig:
-    path = Path(config_path).expanduser().resolve()
+def resolve_config_path(config_path: str | Path | None = None) -> Path:
+    if config_path is not None:
+        return Path(config_path).expanduser().resolve()
+
+    env_config = os.environ.get(CONFIG_PATH_ENV, "").strip()
+    if env_config:
+        return Path(env_config).expanduser().resolve()
+
+    env_home = os.environ.get(RUNTIME_HOME_ENV, "").strip()
+    if env_home:
+        return (Path(env_home).expanduser() / "config.yaml").resolve()
+
+    return Path("config.yaml").expanduser().resolve()
+
+
+def load_config(config_path: str | Path | None = None) -> AppConfig:
+    path = resolve_config_path(config_path)
     if not path.exists():
         raise ConfigError("Config file not found.")
 

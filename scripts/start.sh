@@ -4,15 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 PYTHON="$REPO_ROOT/.venv/bin/python"
-PID_FILE="$REPO_ROOT/tmp/run/knowledgeforward.pid"
-LOG_FILE="$REPO_ROOT/tmp/logs/knowledgeforward.log"
-OLLAMA_PID_FILE="$REPO_ROOT/tmp/run/ollama.pid"
-OLLAMA_MARKER_FILE="$REPO_ROOT/tmp/run/ollama.managed"
-OLLAMA_LOG_FILE="$REPO_ROOT/tmp/logs/ollama.log"
 HOST="127.0.0.1"
 PORT="8765"
 HEALTH_URL="http://${HOST}:${PORT}/health"
 OLLAMA_TAGS_URL="http://127.0.0.1:11434/api/tags"
+
+# shellcheck source=scripts/runtime_env.sh
+source "$SCRIPT_DIR/runtime_env.sh"
 
 info() {
   printf 'INFO: %s\n' "$*"
@@ -97,13 +95,20 @@ PY
 }
 
 check_config() {
-  [ -f "$REPO_ROOT/config.yaml" ] || die "config.yaml is missing. Copy config.example.yaml and set a real local token."
+  [ -f "$CONFIG_PATH" ] || die "Config file is missing: $CONFIG_PATH. Run './knowledgeforward init-runtime <path>' or create a config file there."
 
-  if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
-    die "config.yaml is tracked by Git. It must remain local and Git-untracked."
-  fi
-  if ! git check-ignore -q config.yaml; then
-    warn "config.yaml is untracked, but it is not ignored by Git."
+  if [ "$RUNTIME_IS_EXTERNAL" = "1" ]; then
+    if path_is_inside_repo "$CONFIG_PATH" || path_is_inside_repo "$RUNTIME_HOME"; then
+      die "Explicit KnowledgeForward runtime paths must be outside the public repository."
+    fi
+  else
+    warn "Using legacy repo-local config/tmp runtime. For real use, set KNOWLEDGE_FORWARD_HOME outside the public repository."
+    if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
+      die "config.yaml is tracked by Git. It must remain local and Git-untracked."
+    fi
+    if ! git check-ignore -q config.yaml; then
+      warn "config.yaml is untracked, but it is not ignored by Git."
+    fi
   fi
 
   "$PYTHON" - <<'PY'
@@ -116,14 +121,14 @@ from knowledge_forward.config import ConfigError, INSECURE_AUTH_TOKENS, load_con
 from knowledge_forward.source_safety import MAX_DEFAULT_QUERY_DAYS, validate_startup_allowed_sources
 
 repo = Path.cwd().resolve()
-config_path = repo / "config.yaml"
+config_path = Path(os.environ["KNOWLEDGE_FORWARD_CONFIG"])
 raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 auth = raw.get("auth") or {}
 config_token = str(auth.get("token", "")).strip()
 env_token = os.environ.get("KNOWLEDGE_FORWARD_AUTH_TOKEN", "").strip()
 
 if not config_token:
-    print("auth.token is missing in config.yaml.", file=sys.stderr)
+    print("auth.token is missing in the config file.", file=sys.stderr)
     sys.exit(1)
 if config_token in INSECURE_AUTH_TOKENS:
     print("auth.token is still an insecure placeholder.", file=sys.stderr)
@@ -133,9 +138,9 @@ if env_token in INSECURE_AUTH_TOKENS:
     sys.exit(1)
 
 try:
-    config = load_config(config_path)
+    config = load_config()
 except ConfigError as exc:
-    print(f"config.yaml failed validation: {exc}", file=sys.stderr)
+    print(f"config file failed validation: {exc}", file=sys.stderr)
     sys.exit(1)
 
 if config.server.host != "127.0.0.1" or config.server.port != 8765:
@@ -162,7 +167,7 @@ if query_filtered_sources:
     )
     print(f"OK: query-filtered enabled source(s): {source_summary}")
 print(
-    "OK: config.yaml is local, token is non-placeholder, and allowed_sources passed startup safety checks. "
+    "OK: config file is local, token is non-placeholder, and allowed_sources passed startup safety checks. "
     f"No real Vault or {cloud_label} discovery is performed."
 )
 PY
@@ -194,7 +199,7 @@ remove_stale_ollama_state() {
   fi
 
   if [ -f "$OLLAMA_MARKER_FILE" ] || [ -f "$OLLAMA_PID_FILE" ]; then
-    warn "Removing stale Ollama management files under tmp/run."
+    warn "Removing stale Ollama management files under $RUNTIME_RUN_DIR."
     rm -f "$OLLAMA_MARKER_FILE" "$OLLAMA_PID_FILE"
   fi
 }
@@ -214,9 +219,9 @@ def matches_model(requested: str, available: set[str]) -> bool:
 
 
 try:
-    config = load_config("config.yaml")
+    config = load_config()
 except ConfigError as exc:
-    print(f"config.yaml failed validation: {exc}", file=sys.stderr)
+    print(f"config file failed validation: {exc}", file=sys.stderr)
     sys.exit(1)
 
 url = config.ollama.base_url.rstrip("/") + "/api/tags"
@@ -409,6 +414,7 @@ enable_tailscale_serve() {
 
 main() {
   ensure_repo_root
+  resolve_runtime_env
   check_virtualenv
   check_dependencies
   check_config

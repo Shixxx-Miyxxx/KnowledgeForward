@@ -4,9 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 PYTHON="$REPO_ROOT/.venv/bin/python"
-PID_FILE="$REPO_ROOT/tmp/run/knowledgeforward.pid"
 PORT="8765"
 OLLAMA_TAGS_URL="http://127.0.0.1:11434/api/tags"
+
+# shellcheck source=scripts/runtime_env.sh
+source "$SCRIPT_DIR/runtime_env.sh"
 
 info() {
   printf 'INFO: %s\n' "$*"
@@ -137,8 +139,8 @@ disable_tailscale_serve() {
 }
 
 read_configured_ollama_model() {
-  if [ ! -f "$REPO_ROOT/config.yaml" ]; then
-    warn "config.yaml is missing; skipping Ollama model unload."
+  if [ ! -f "$CONFIG_PATH" ]; then
+    warn "Config file is missing; skipping Ollama model unload."
     return 1
   fi
   if [ ! -x "$PYTHON" ]; then
@@ -146,24 +148,25 @@ read_configured_ollama_model() {
     return 1
   fi
 
-  "$PYTHON" - <<'PY'
+"$PYTHON" - <<'PY'
+import os
 import sys
 import yaml
 
 try:
-    raw = yaml.safe_load(open("config.yaml", encoding="utf-8")) or {}
+    raw = yaml.safe_load(open(os.environ["KNOWLEDGE_FORWARD_CONFIG"], encoding="utf-8")) or {}
 except Exception:
-    print("Could not read config.yaml.", file=sys.stderr)
+    print("Could not read config file.", file=sys.stderr)
     sys.exit(1)
 
 ollama = raw.get("ollama") or {}
 if not isinstance(ollama, dict):
-    print("config.yaml ollama section is not a mapping.", file=sys.stderr)
+    print("config file ollama section is not a mapping.", file=sys.stderr)
     sys.exit(1)
 
 model = str(ollama.get("model", "llama3.2")).strip()
 if not model:
-    print("config.yaml ollama.model is empty.", file=sys.stderr)
+    print("config file ollama.model is empty.", file=sys.stderr)
     sys.exit(1)
 
 print(model)
@@ -190,7 +193,7 @@ unload_configured_ollama_model() {
   fi
 
   if ! model="$(read_configured_ollama_model 2>/dev/null)"; then
-    warn "Could not read config.yaml ollama.model; skipping model unload."
+    warn "Could not read config file ollama.model; skipping model unload."
     return 0
   fi
 
@@ -214,6 +217,7 @@ unload_configured_ollama_model() {
 
 main() {
   cd "$REPO_ROOT"
+  resolve_runtime_env
   stop_knowledgeforward
   disable_tailscale_serve
   unload_configured_ollama_model

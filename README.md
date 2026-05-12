@@ -10,7 +10,7 @@
 
 最終ゴールは次です。
 
-- `config.yaml` が作成され、Git管理外のまま安全なtokenが設定されている。
+- private runtimeが公開repo外に作成され、安全なtoken入りの `config.yaml` が設定されている。
 - ユーザーが指定したMarkdownフォルダだけが `allowed_sources` に設定されている。
 - Ollamaの指定モデルがローカルに存在する。
 - `./knowledgeforward start` が成功し、`./knowledgeforward status` で起動状態を確認できる。
@@ -30,7 +30,8 @@ KnowledgeForward は、明示的に許可されたローカルMarkdownフォル�
 - telemetryは使わない。
 - サーバーは `127.0.0.1:8765` にbindする。
 - iPhoneから使う場合はTailscale Serveを使い、Tailscale Funnelは使わない。
-- `config.yaml`、`data/`、`tmp/`、SQLite DB、ログ、実ノートはGitに入れない。
+- 実運用の `config.yaml`、DB、ログ、PID、実ノートは `KNOWLEDGE_FORWARD_HOME` で公開repo外に置く。
+- repo-local `config.yaml`、`data/`、`tmp/` は互換用のlegacy運用であり、実運用では使わない。
 
 ## 利用する専用コマンド
 
@@ -42,6 +43,7 @@ repo rootで実行します。
 ./knowledgeforward status
 ./knowledgeforward restart
 ./knowledgeforward stop
+./knowledgeforward init-runtime <path>
 ./knowledgeforward test
 ./knowledgeforward security-check
 ./knowledgeforward security-audit
@@ -94,32 +96,38 @@ python -m pip install -r requirements.txt
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
-### 2. `config.yaml` を作る
+### 2. private runtimeを作る
 
-`config.yaml` がなければ作成します。
-
-```bash
-cp config.example.yaml config.yaml
-```
-
-`config.yaml` はローカル秘密情報を含むため、Gitに入れてはいけません。必ず確認してください。
+実運用では、公開repoの外にprivate runtimeを作ります。例:
 
 ```bash
-git check-ignore -q config.yaml
-git ls-files --error-unmatch config.yaml
+RUNTIME_HOME="/path/to/40_private_runtime/KnowledgeForward-local"
+./knowledgeforward init-runtime "$RUNTIME_HOME"
+export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
-2つ目のコマンドは失敗するのが正しい状態です。成功した場合、`config.yaml` がGit管理されているので作業を止めてユーザーに報告してください。
+`init-runtime` は次を作成します。既存ファイルは上書きしません。
+
+- `config.yaml`
+- `data/`
+- `logs/`
+- `run/`
+- `.gitignore`
+- `sample_vault/`
+
+以後の `start`、`status`、`stop` は同じ `KNOWLEDGE_FORWARD_HOME` を指定して実行します。
+
+repo root直下の `config.yaml`、`data/`、`tmp/` を使う旧方式は互換用に残していますが、実運用では非推奨です。既にrepo-localに実設定やDBがある場合も自動移行はしません。ユーザー確認のうえで、private runtime側へ手動で移してください。
 
 ### 3. tokenを設定する
 
-`auth.token` が `replace-with-a-long-random-token` または空なら、安全なtokenを生成して `config.yaml` に設定します。
+`init-runtime` で作った `config.yaml` には安全なtokenが自動設定されます。既存configを手動で直す場合、`auth.token` が `replace-with-a-long-random-token` または空なら、安全なtokenを生成して設定します。
 
 ```bash
 .venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-tokenは最終報告にそのまま書かないでください。ユーザーには「`config.yaml` の `auth.token` をWeb UIのToken欄に貼り付けてください」とだけ伝えます。
+tokenは最終報告にそのまま書かないでください。ユーザーには「private runtimeの `config.yaml` の `auth.token` をWeb UIのToken欄に貼り付けてください」とだけ伝えます。
 
 ### 4. Markdown sourceを決める
 
@@ -140,7 +148,7 @@ test ! -L "<ABSOLUTE_MARKDOWN_SOURCE_DIR>"
 
 ### 5. `allowed_sources` を設定する
 
-`config.yaml` の `allowed_sources` は、最初はユーザーが指定したsourceだけにします。実パスの例をREADMEやコメントに残さないでください。
+private runtimeの `config.yaml` の `allowed_sources` は、最初はユーザーが指定したsourceだけにします。実パスの例をREADMEやコメントに残さないでください。
 
 設定形:
 
@@ -160,7 +168,7 @@ source `name` は英数字、underscore、hyphen程度の短い名前にして�
 
 ### 6. Ollamaモデルを用意する
 
-`config.yaml` の `ollama.model` を読みます。初期値は `llama3.2` です。
+private runtimeの `config.yaml` の `ollama.model` を読みます。初期値は `llama3.2` です。
 
 モデルがローカルにない場合はpullします。
 
@@ -168,18 +176,18 @@ source `name` は英数字、underscore、hyphen程度の短い名前にして�
 ollama pull llama3.2
 ```
 
-別モデルに変更する場合は、必ず `config.yaml` の `ollama.model` とpullするモデル名を一致させてください。
+別モデルに変更する場合は、必ずprivate runtimeの `config.yaml` の `ollama.model` とpullするモデル名を一致させてください。
 
 ### 7. 起動する
 
 ```bash
-./knowledgeforward start
+KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward start
 ```
 
 このコマンドは以下を検査します。
 
 - `.venv` とPython依存関係
-- `config.yaml` が存在し、Git管理外であること
+- private runtimeの `config.yaml` が存在すること
 - `auth.token` がプレースホルダではないこと
 - `allowed_sources` が安全なsourceであること
 - Ollamaが応答し、指定モデルが存在すること
@@ -190,7 +198,7 @@ ollama pull llama3.2
 ### 8. 状態確認
 
 ```bash
-./knowledgeforward status
+KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward status
 ```
 
 最低限、次を確認します。
@@ -215,7 +223,7 @@ http://127.0.0.1:8765/
 
 - Macでは上のURLを開く。
 - iPhoneでは `./knowledgeforward status` の `iPhone URL` を開く。
-- Token popupには `config.yaml` の `auth.token` を貼り付ける。
+- Token popupにはprivate runtimeの `config.yaml` の `auth.token` を貼り付ける。
 - token保存後、自動Reindexが始まる。
 - 手動Reindexは入力欄に `/reindex`。
 - 日付を持たないMarkdownが検索に出ない場合は、filterアイコンから全期間検索を選ぶ。
@@ -224,10 +232,10 @@ tokenの実値、sourceの実パス、Markdown本文はチャットに貼らな�
 
 ## トラブル対応
 
-`config.yaml` がない:
+private runtimeの `config.yaml` がない:
 
 ```bash
-cp config.example.yaml config.yaml
+./knowledgeforward init-runtime "$RUNTIME_HOME"
 ```
 
 `uvicorn` または `yaml` がない:
@@ -238,11 +246,11 @@ cp config.example.yaml config.yaml
 
 `auth.token is still an insecure placeholder`:
 
-`.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"` で生成し、`config.yaml` の `auth.token` を置き換えます。
+`.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"` で生成し、private runtimeの `config.yaml` の `auth.token` を置き換えます。
 
 `Configured Ollama model was not found`:
 
-`config.yaml` の `ollama.model` を読み、そのモデルをpullします。
+private runtimeの `config.yaml` の `ollama.model` を読み、そのモデルをpullします。
 
 ```bash
 ollama pull <MODEL_NAME>
@@ -270,7 +278,7 @@ default_query_days: 30
 
 古いDBやschema変更で検索エラー:
 
-まず `/reindex` を実行してください。完全に作り直す場合は、KnowledgeForwardを止めてから `data/knowledgeforward.sqlite3`、`data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。`data/` はGit管理外のままにしてください。
+まず `/reindex` を実行してください。完全に作り直す場合は、KnowledgeForwardを止めてからprivate runtimeの `data/knowledgeforward.sqlite3`、`data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。private runtimeは公開repo外に置いてください。
 
 ## 検証
 

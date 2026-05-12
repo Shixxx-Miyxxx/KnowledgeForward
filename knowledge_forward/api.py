@@ -83,7 +83,7 @@ class SecurityCheckRequest(BaseModel):
 
 
 def create_app(config_path: str | Path | None = None) -> FastAPI:
-    config = load_config(config_path or "config.yaml")
+    config = load_config(config_path)
     search_service = SearchService(config)
     app = FastAPI(title="KnowledgeForward", version="0.1.0")
     app.state.config = config

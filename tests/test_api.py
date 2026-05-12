@@ -369,6 +369,20 @@ def test_health_does_not_return_database_path(tmp_path: Path) -> None:
     assert payload["enabled_sources"] == ["vault"]
 
 
+def test_create_app_uses_knowledge_forward_config_env(tmp_path: Path, monkeypatch) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "note.md").write_text("# Note\n\nenvconfig", encoding="utf-8")
+    config_path = _write_api_config(tmp_path, vault)
+    monkeypatch.setenv("KNOWLEDGE_FORWARD_CONFIG", str(config_path))
+
+    client = TestClient(create_app())
+
+    response = client.get("/health", headers={"Authorization": "Bearer test-token"})
+    assert response.status_code == 200
+    assert response.json()["enabled_sources"] == ["vault"]
+
+
 def test_ask_returns_answer_with_citations(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()

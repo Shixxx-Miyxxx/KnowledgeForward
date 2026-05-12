@@ -23,14 +23,14 @@ KnowledgeForwardはCodexで作成しているOSSです。使う前に不安が�
 
 KnowledgeForwardは、次の方針で作っています。
 
-- ユーザーが `config.yaml` に明示したMarkdownフォルダだけを読みます。
+- ユーザーがprivate runtimeの `config.yaml` に明示したMarkdownフォルダだけを読みます。
 - 外部LLM APIは使いません。
 - 外部検索APIは使いません。
 - telemetryは使いません。
 - Mac内の `127.0.0.1` に閉じて起動します。
 - iPhoneから使う場合はTailscale Serveを使います。
 - Tailscale Funnelでインターネット全体へ公開する前提ではありません。
-- `config.yaml`、DB、ログ、個人ノートをGitに入れない前提です。
+- 実運用の `config.yaml`、DB、ログ、個人ノートは公開repo外のprivate runtimeに置く前提です。
 
 ただし、OSSなので「絶対に安全」とは言えません。利用は自己責任です。不安が残る場合は、詳しい人やLLMに確認してから使ってください。
 
@@ -102,9 +102,22 @@ repo rootで `./knowledgeforward` を使います。
 
 `make` ターゲットも互換用に残していますが、主導線は `./knowledgeforward ...` です。
 
+### private runtime
+
+実運用では公開repo直下に `config.yaml`、DB、ログを置かず、repo外にprivate runtimeを作ります。
+
+```bash
+RUNTIME_HOME="/path/to/40_private_runtime/KnowledgeForward-local"
+./knowledgeforward init-runtime "$RUNTIME_HOME"
+export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
+./knowledgeforward start
+```
+
+`30_repo/KnowledgeForward` はGitHub push用の公開repoとして扱い、公開対象はtracked filesだけにしてください。repo-local `config.yaml`、`data/`、`tmp/` は互換用のlegacy運用であり、実運用では非推奨です。
+
 ### 設定と安全境界
 
-`config.yaml` はローカル設定ファイルで、Git管理しません。`allowed_sources` に明示されたフォルダだけを読みます。
+private runtimeの `config.yaml` はローカル設定ファイルで、公開repoではGit管理しません。`allowed_sources` に明示されたフォルダだけを読みます。
 
 実データ用sourceは次の形を基本にします。
 

@@ -17,6 +17,7 @@ Usage:
   ./knowledgeforward status
   ./knowledgeforward restart
   ./knowledgeforward stop
+  ./knowledgeforward init-runtime <path>
   ./knowledgeforward test
   ./knowledgeforward security-check
   ./knowledgeforward security-audit [quick|full]
@@ -63,6 +64,15 @@ case "$command_name" in
     shift
     require_no_extra_args "$command_name" "$@"
     bash scripts/stop.sh
+    ;;
+  init-runtime)
+    shift
+    if [ "$#" -ne 1 ]; then
+      printf 'ERROR: init-runtime requires exactly one path.\n\n' >&2
+      usage >&2
+      exit 2
+    fi
+    "$PYTHON" -m knowledge_forward.runtime init-runtime "$1" --repo-root "$SCRIPT_DIR"
     ;;
   test)
     shift
