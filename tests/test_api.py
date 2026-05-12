@@ -132,7 +132,7 @@ def test_web_html_is_chat_ui_and_omits_sensitive_fixed_content() -> None:
     assert 'id="commandMenu"' in html
     assert '"/diagnostics"' in html
     assert '"/reindex"' in html
-    assert '"/security"' in html
+    assert '"/security"' not in html
     assert '"/security full"' not in html
     assert "command-desc" not in html
     assert 'id="searchToggle"' not in html
@@ -214,12 +214,12 @@ def test_web_html_is_chat_ui_and_omits_sensitive_fixed_content() -> None:
     assert "{ query: rawText" not in html
     assert 'rawText.toLowerCase() === "/reindex"' in html
     assert 'rawText.toLowerCase().startsWith("/diagnostics")' in html
-    assert 'rawText.toLowerCase().startsWith("/security")' in html
+    assert 'rawText.toLowerCase().startsWith("/security")' not in html
     assert 'insertText: "/diagnostics"' in html
-    assert 'insertText: "/security"' in html
-    assert 'security: "/security/check"' in html
-    assert 'const profile = "full";' in html
-    assert "{ profile }" in html
+    assert 'insertText: "/security"' not in html
+    assert 'security: "/security/check"' not in html
+    assert 'const profile = "full";' not in html
+    assert "{ profile }" not in html
     assert "使い方: /security または /security full" not in html
     assert "formatReindexResult" in html
     assert "formatSecurityResult" in html
@@ -254,7 +254,7 @@ def test_web_html_is_chat_ui_and_omits_sensitive_fixed_content() -> None:
     assert "appendThinkingPlaceholder" in html
     assert 'appendThinkingPlaceholder("Reindex中")' in html
     assert 'appendThinkingPlaceholder("Diagnostics中")' in html
-    assert 'appendThinkingPlaceholder("Security診断中")' in html
+    assert 'appendThinkingPlaceholder("Security診断中")' not in html
     assert "Security診断中..." not in html
     assert "思考中" in html
     assert ".message-bubble.thinking" in html
@@ -351,6 +351,36 @@ def test_index_html_sets_security_headers(tmp_path: Path) -> None:
     assert response.headers["x-frame-options"] == "DENY"
     assert "default-src 'self'" in response.headers["content-security-policy"]
     assert "script-src 'self' 'unsafe-inline'" in response.headers["content-security-policy"]
+
+
+def test_index_html_omits_dev_security_by_default(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY", raising=False)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "note.md").write_text("# Note\n\nsecurity", encoding="utf-8")
+    client = TestClient(create_app(_write_api_config(tmp_path, vault)))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'insertText: "/security"' not in response.text
+    assert 'security: "/security/check"' not in response.text
+    assert 'rawText.toLowerCase().startsWith("/security")' not in response.text
+
+
+def test_index_html_includes_dev_security_when_enabled(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY", "1")
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "note.md").write_text("# Note\n\nsecurity", encoding="utf-8")
+    client = TestClient(create_app(_write_api_config(tmp_path, vault)))
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'insertText: "/security"' in response.text
+    assert 'security: "/security/check"' in response.text
+    assert 'rawText.toLowerCase().startsWith("/security")' in response.text
 
 
 def test_health_does_not_return_database_path(tmp_path: Path) -> None:
@@ -1122,7 +1152,25 @@ allowed_sources:
     assert response.status_code == 401
 
 
+def test_security_check_is_disabled_without_dev_env(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY", raising=False)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "note.md").write_text("# Note\n\nsecurity", encoding="utf-8")
+    app = create_app(_write_api_config(tmp_path, vault))
+    client = TestClient(app)
+
+    response = client.post(
+        "/security/check",
+        json={"profile": "full"},
+        headers={"Authorization": "Bearer test-token"},
+    )
+
+    assert response.status_code == 404
+
+
 def test_security_check_requires_token_and_returns_redacted_result(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY", "1")
     vault = tmp_path / "vault"
     vault.mkdir()
     (vault / "note.md").write_text("# Note\n\nsecurity", encoding="utf-8")
@@ -1171,6 +1219,7 @@ def test_security_check_requires_token_and_returns_redacted_result(tmp_path: Pat
 
 
 def test_security_check_rejects_concurrent_run(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY", "1")
     vault = tmp_path / "vault"
     vault.mkdir()
     (vault / "note.md").write_text("# Note\n\nsecurity", encoding="utf-8")

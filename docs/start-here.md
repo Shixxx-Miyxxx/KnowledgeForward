@@ -28,7 +28,7 @@ KnowledgeForwardは、次の方針で作っています。
 - Mac 内の `127.0.0.1` に閉じて起動します。
 - iPhone から使う場合は Tailscale Serve を使います。
 - Tailscale Funnel でインターネット全体へ公開する前提ではありません。
-- 実運用の `config.yaml`、DB、ログ、PID、個人ノートは公開 repo 外の private runtime に置く前提です。
+- 実運用の `config.yaml`、DB、ログ、PID、個人ノートは KnowledgeForward の repo ディレクトリ外、または少なくとも Git 管理外に置く前提です。
 
 ただし、OSSなので「絶対に安全」とは言えません。利用は自己責任です。不安が残る場合は、詳しい人やLLMに確認してから使ってください。
 
@@ -45,7 +45,7 @@ KnowledgeForwardは、自分のMarkdownファイルを検索し、その検索�
 意図していない使い方:
 
 - Mac全体やホームディレクトリ全体を読ませる。
-- 個人ノート、token、DB、ログをGitHubへアップロードする。
+- 個人ノート、token、DB、ログを Git 管理や共有場所へアップロードする。
 - Tailscale Funnelなどでインターネット全体へ公開する。
 - 法律、医療、金融などの重要判断を回答だけで決める。
 
@@ -59,7 +59,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-2. 公開 repo 外に private runtime を作ります。
+2. repo ディレクトリ外に private runtime を作ります。
 
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
@@ -102,9 +102,7 @@ Macでは `http://127.0.0.1:8765/` を開きます。iPhoneでは `status` の `
 
 ## private runtime
 
-private runtime は、公開 repo と個人 runtime を分けるためのローカル専用ディレクトリです。実運用ではここに `config.yaml`、DB、ログ、PID、Ollama 管理ファイルを置きます。
-
-repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime として互換用に残っていますが、実運用では非推奨です。公開対象は tracked files だけにしてください。repo-local に実設定やDBがある場合は、自動移行されないため、内容を確認して private runtime 側へ手動で移してください。
+private runtime は、KnowledgeForward の repo と個人 runtime を分けるためのローカル専用ディレクトリです。実運用ではここに `config.yaml`、DB、ログ、PID、Ollama 管理ファイルを置きます。token、実パス、ログ全文、private runtime の `config.yaml` 全文を issue、PR、チャットに貼らないでください。
 
 設定ファイルの優先順は次の通りです。
 
@@ -114,6 +112,8 @@ repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime とし
 4. repo-local `config.yaml`
 
 通常は `KNOWLEDGE_FORWARD_HOME` だけで十分です。別名の config を使う場合は `KNOWLEDGE_FORWARD_CONFIG` を使えます。
+
+`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定の場合、互換用に repo-local `config.yaml`、`data/`、`tmp/` を使う legacy runtime へ fallback します。実運用では非推奨なので、警告が出た場合は private runtime へ移してください。
 
 ## 改造前に見るファイル
 
@@ -128,7 +128,7 @@ repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime とし
 
 ## 改造前チェック
 
-変更前後で最低限次を実行してください。
+変更前後で最低限次を実行してください。security 系コマンドは開発者・メンテナ向けの repo 監査です。Web UI/API の `/security` は通常利用では無効で、開発時に `KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY=1` を設定した場合だけ有効になります。
 
 ```bash
 ./knowledgeforward test

@@ -318,7 +318,7 @@ show_git_safety() {
 
   if [ "$RUNTIME_IS_EXTERNAL" = "1" ]; then
     if path_is_inside_repo "$CONFIG_PATH" || path_is_inside_repo "$RUNTIME_HOME"; then
-      status_line "Runtime location" "inside public repo (should be outside)"
+      status_line "Runtime location" "inside repository directory (should be outside)"
     else
       status_line "Runtime location" "external"
     fi

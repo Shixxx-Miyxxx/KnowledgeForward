@@ -8,7 +8,7 @@
 
 最終ゴールは次です。
 
-- private runtime が公開 repo 外に作成され、安全な token 入りの `config.yaml` が設定されている。
+- private runtime が KnowledgeForward repo ディレクトリ外、または少なくとも Git 管理外に作成され、安全な token 入りの `config.yaml` が設定されている。
 - ユーザーが指定した Markdown フォルダだけが `allowed_sources` に設定されている。
 - Ollama の指定モデルがローカルに存在する。
 - `./knowledgeforward start` が成功し、`./knowledgeforward status` で起動状態を確認できる。
@@ -28,7 +28,7 @@ KnowledgeForward は、明示的に許可されたローカル Markdown フォ�
 - telemetry は使わない。
 - サーバーは `127.0.0.1:8765` に bind する。
 - iPhone から使う場合は Tailscale Serve を使い、Tailscale Funnel は使わない。
-- 実運用の `config.yaml`、DB、ログ、PID、実ノートは `KNOWLEDGE_FORWARD_HOME` で公開 repo 外に置く。
+- 実運用の `config.yaml`、DB、ログ、PID、実ノートは `KNOWLEDGE_FORWARD_HOME` で KnowledgeForward repo ディレクトリ外、または少なくとも Git 管理外に置く。
 - repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime であり、実運用では使わない。
 
 ## 利用する専用コマンド
@@ -96,7 +96,7 @@ python -m pip install -r requirements.txt
 
 ### 2. private runtime を作る
 
-実運用では、公開 repo の外に private runtime を作ります。例:
+実運用では、KnowledgeForward repo ディレクトリ外に private runtime を作ります。例:
 
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
@@ -136,7 +136,7 @@ repo root 直下の `config.yaml`、`data/`、`tmp/` を使う旧方式は互換
 .venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-token は最終報告にそのまま書かないでください。ユーザーには「private runtime の `config.yaml` の `auth.token` を Web UI の Token 欄に貼り付けてください」とだけ伝えます。
+token は最終報告にそのまま書かないでください。ユーザーには「private runtime の `config.yaml` の `auth.token` を Web UI の Token 欄に貼り付けてください」とだけ伝えます。token、実パス、ログ全文、private runtime の `config.yaml` 全文を issue、PR、チャットに貼らないでください。
 
 ### 5. Markdown source を決める
 
@@ -287,11 +287,11 @@ default_query_days: 30
 
 古い DB や schema 変更で検索エラー:
 
-まず `/reindex` を実行してください。完全に作り直す場合は、KnowledgeForward を止めてから private runtime の `data/knowledgeforward.sqlite3`、`data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。private runtime は公開 repo 外に置いてください。
+まず `/reindex` を実行してください。完全に作り直す場合は、KnowledgeForward を止めてから private runtime の `data/knowledgeforward.sqlite3`、`data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。private runtime は repo ディレクトリ外、または少なくとも Git 管理外に置いてください。
 
 ## 検証
 
-セットアップ作業後、可能な範囲で次を実行します。
+セットアップ作業後、可能な範囲で次を実行します。security 系コマンドは開発者・メンテナ向けの repo 監査です。Web UI/API の `/security` は通常利用では無効で、開発時に `KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY=1` を設定した場合だけ有効になります。
 
 ```bash
 ./knowledgeforward test

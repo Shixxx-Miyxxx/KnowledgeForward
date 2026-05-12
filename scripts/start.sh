@@ -99,10 +99,10 @@ check_config() {
 
   if [ "$RUNTIME_IS_EXTERNAL" = "1" ]; then
     if path_is_inside_repo "$CONFIG_PATH" || path_is_inside_repo "$RUNTIME_HOME"; then
-      die "Explicit KnowledgeForward runtime paths must be outside the public repository."
+      die "Explicit KnowledgeForward runtime paths must be outside the repository directory."
     fi
   else
-    warn "Using legacy repo-local config/tmp runtime. For real use, set KNOWLEDGE_FORWARD_HOME outside the public repository."
+    warn "Using legacy repo-local config/tmp runtime. For real use, set KNOWLEDGE_FORWARD_HOME outside the repository directory."
     if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
       die "config.yaml is tracked by Git. It must remain local and Git-untracked."
     fi

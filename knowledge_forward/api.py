@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 import logging
+import os
 from pathlib import Path
 import re
 import secrets
@@ -27,10 +28,11 @@ from .rag import (
     strip_citation_markers,
     strip_markdown_formatting,
 )
-from .web import INDEX_HTML
+from .web import render_index_html
 
 
 MAX_SEARCH_PAGE_SIZE = 100
+DEV_SECURITY_ENV = "KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY"
 MAX_SEARCH_OFFSET = 5000
 MIN_ASK_EVIDENCE_SCORE = 1.0
 DEFAULT_SEARCH_PAGE_SIZE = 50
@@ -85,15 +87,17 @@ class SecurityCheckRequest(BaseModel):
 def create_app(config_path: str | Path | None = None) -> FastAPI:
     config = load_config(config_path)
     search_service = SearchService(config)
+    dev_security_enabled = _dev_security_enabled()
     app = FastAPI(title="KnowledgeForward", version="0.1.0")
     app.state.config = config
     app.state.search_service = search_service
     app.state.ollama = OllamaClient(config.ollama)
+    app.state.dev_security_enabled = dev_security_enabled
     app.state.security_check_lock = Lock()
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
-        return HTMLResponse(INDEX_HTML, headers=HTML_SECURITY_HEADERS)
+        return HTMLResponse(render_index_html(dev_security_enabled), headers=HTML_SECURITY_HEADERS)
 
     @app.get("/health", dependencies=[Depends(require_auth)])
     async def health(request: Request) -> dict[str, Any]:
@@ -198,6 +202,9 @@ def create_app(config_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/security/check", dependencies=[Depends(require_auth)])
     async def security_check(request: Request, payload: SecurityCheckRequest) -> dict[str, Any]:
+        if not request.app.state.dev_security_enabled:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
         lock: Lock = request.app.state.security_check_lock
         if not lock.acquire(blocking=False):
             raise HTTPException(
@@ -215,6 +222,10 @@ def create_app(config_path: str | Path | None = None) -> FastAPI:
             lock.release()
 
     return app
+
+
+def _dev_security_enabled() -> bool:
+    return os.environ.get(DEV_SECURITY_ENV, "").strip() == "1"
 
 
 async def require_auth(request: Request) -> None:

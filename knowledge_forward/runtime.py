@@ -77,7 +77,7 @@ def init_runtime(target: str | Path, repo_root: str | Path) -> InitRuntimeResult
     repo = Path(repo_root).expanduser().resolve()
     runtime_home = Path(target).expanduser().resolve()
     if runtime_home == repo or _is_relative_to(runtime_home, repo):
-        raise ValueError("Runtime home must be outside the public repository.")
+        raise ValueError("Runtime home must be outside the KnowledgeForward repository directory.")
 
     created: list[Path] = []
     skipped: list[Path] = []

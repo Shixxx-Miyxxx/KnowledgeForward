@@ -38,7 +38,7 @@ python -m pip install -r requirements.txt
 
 ## 安全境界
 
-実運用の `config.yaml`、DB、ログ、PID、実ノートは公開 repo の外に置いてください。標準構成では `KNOWLEDGE_FORWARD_HOME` を private runtime として使います。
+実運用の `config.yaml`、DB、ログ、PID、実ノートは KnowledgeForward の repo ディレクトリ外、または少なくとも Git 管理外に置いてください。標準構成では `KNOWLEDGE_FORWARD_HOME` を private runtime として使います。
 
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
@@ -54,8 +54,6 @@ export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 - `run/`
 - `.gitignore`
 - `sample_vault/`
-
-repo root 直下の `config.yaml`、`data/`、`tmp/` を使う運用は legacy repo-local runtime として互換用に残っていますが、実運用では非推奨です。`./knowledgeforward start` は legacy runtime を使う場合に警告します。
 
 ## 設定解決順
 
@@ -103,7 +101,7 @@ KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward start
 KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward status
 ```
 
-Mac では `http://127.0.0.1:8765/` を開きます。iPhone では `status` の `iPhone URL` を開きます。Web UI の Token 欄には private runtime の `config.yaml` にある `auth.token` を貼り付けます。token の実値を issue、PR、チャット、ログに貼らないでください。
+Mac では `http://127.0.0.1:8765/` を開きます。iPhone では `status` の `iPhone URL` を開きます。Web UI の Token 欄には private runtime の `config.yaml` にある `auth.token` を貼り付けます。token、実パス、ログ全文、private runtime の `config.yaml` 全文を issue、PR、チャットに貼らないでください。
 
 ## 主要コマンド
 
@@ -117,9 +115,6 @@ repo root で実行します。
 ./knowledgeforward stop
 ./knowledgeforward init-runtime <path>
 ./knowledgeforward test
-./knowledgeforward security-check
-./knowledgeforward security-audit
-./knowledgeforward security-audit full
 ```
 
 `make` ターゲットも互換用に残していますが、通常は `./knowledgeforward ...` を使います。
@@ -144,7 +139,7 @@ private runtime の `config.yaml` がない:
 .venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-生成した token を private runtime の `config.yaml` の `auth.token` に設定します。公開場所には貼らないでください。
+生成した token を private runtime の `config.yaml` の `auth.token` に設定します。issue、PR、チャットには貼らないでください。
 
 `Configured Ollama model was not found`:
 
@@ -163,9 +158,13 @@ source path が広すぎる、存在しない、symlink、`require_query_filter`
 - 日付 metadata がない Markdown の場合は、Web UI で全期間検索を明示する。
 - `/diagnostics <query>` で検索前段のヒットを確認する。
 
+repo-local runtime 警告が出る:
+
+`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定の場合、互換用に repo root 直下の `config.yaml` と `tmp/` を使おうとします。この legacy repo-local runtime は実運用では非推奨です。`./knowledgeforward init-runtime "$HOME/.knowledgeforward-local"` で private runtime を作り、`KNOWLEDGE_FORWARD_HOME` を設定してください。
+
 ## 開発
 
-変更前後で最低限次を実行してください。
+変更前後で最低限次を実行してください。security 系コマンドは開発者・メンテナ向けの repo 監査です。Web UI/API の `/security` は通常利用では無効で、開発時に `KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY=1` を設定した場合だけ有効になります。
 
 ```bash
 ./knowledgeforward test

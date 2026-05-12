@@ -94,7 +94,7 @@ def test_init_runtime_rejects_target_inside_public_repo(tmp_path: Path) -> None:
     try:
         init_runtime(target, repo)
     except ValueError as exc:
-        assert "outside the public repository" in str(exc)
+        assert "outside the KnowledgeForward repository directory" in str(exc)
     else:
         raise AssertionError("init_runtime should reject repo-internal targets")
 

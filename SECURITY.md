@@ -27,8 +27,8 @@ KnowledgeForward should preserve these boundaries:
 - No external search API calls by default.
 - No telemetry by default.
 - Only folders explicitly listed in `config.yaml` may be indexed.
-- Real runtime files must stay outside the public repository. This includes private runtime `config.yaml`, `data/`, `logs/`, `run/`, PID files, Ollama management files, SQLite databases, and real private notes.
-- `KNOWLEDGE_FORWARD_HOME` should point to a private runtime outside the public repository for real use.
+- Real runtime files must stay outside the KnowledgeForward repository directory, or at least outside Git tracking. This includes private runtime `config.yaml`, `data/`, `logs/`, `run/`, PID files, Ollama management files, SQLite databases, and real private notes.
+- `KNOWLEDGE_FORWARD_HOME` should point to a private runtime outside the KnowledgeForward repository directory for real use.
 - `KNOWLEDGE_FORWARD_CONFIG` may point to an explicit config file, but that config must remain local and must not be committed.
 - repo-local `config.yaml`, `data/`, and `tmp/` are legacy compatibility paths only and should not be used for real private data.
 - The server should bind to `127.0.0.1` by default.

@@ -13,15 +13,16 @@ RUNTIME_HOME="$HOME/.knowledgeforward-local-dev"
 export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
-Use the generated private runtime for local manual runs. Do not put real notes, tokens, logs, SQLite databases, PID files, or local absolute paths in the public repository. Tests should use `tmp_path`, `fixtures/sample_vault`, or synthetic data instead of a developer's real runtime.
+Use the generated private runtime for local manual runs. Do not put real notes, tokens, logs, SQLite databases, PID files, or local absolute paths in the repository directory or Git tracking. Tests should use `tmp_path`, `fixtures/sample_vault`, or synthetic data instead of a developer's real runtime.
 
 ## Checks
 
-Run these before opening a pull request:
+Run these before opening a pull request. Security commands are developer/maintainer repository checks; they are not required for normal end-user operation.
 
 ```bash
 ./knowledgeforward test
 ./knowledgeforward security-check
+./knowledgeforward security-audit
 ```
 
 ## Security Rules
