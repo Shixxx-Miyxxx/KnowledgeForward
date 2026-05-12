@@ -1,30 +1,72 @@
 # KnowledgeForward
 
-KnowledgeForward は、自分が許可したローカルの Markdown フォルダだけを検索し、Mac上の Ollama で根拠付き回答を作る local-first なプライベート知識ワークフローです。
+安全性や概要を自分で確認したい場合は、先に [KnowledgeForwardを使う前に](docs/start-here.md) を読んでください。
 
-この README では、KnowledgeForward 専用コマンド `./knowledgeforward ...` だけを使います。`make` を知らなくても、上から順番に進めれば実Vaultを安全に読ませて質問できる状態まで進めます。
+このREADMEは人間向けの操作マニュアルではありません。Codex、Claude、またはファイル編集とコマンド実行ができるLLMにこのREADMEを渡し、ユーザーがKnowledgeForwardを使い始められる状態まで作業させるための実行指示書です。
 
-## まず到達する状態
+## LLMへの依頼文
 
-この手順のゴールは次の状態です。
+あなたはローカル環境を扱えるコーディングエージェントです。このリポジトリでKnowledgeForwardを初回利用できる状態にしてください。
 
-1. Macで KnowledgeForward を起動できる。
-2. 自分の Obsidian Vault または Markdown フォルダを `config.yaml` に追加できる。
-3. Web UI で token を入力し、Reindex して、自分のノートに質問できる。
-4. 必要なら iPhone Safari から Tailscale 経由で同じ画面を開ける。
+最終ゴールは次です。
 
-CLI は Terminal に貼り付けて実行するコマンドのことです。Markdown は `.md` ファイルのことです。Ollama はMac上でLLMを動かすアプリです。
+- `config.yaml` が作成され、Git管理外のまま安全なtokenが設定されている。
+- ユーザーが指定したMarkdownフォルダだけが `allowed_sources` に設定されている。
+- Ollamaの指定モデルがローカルに存在する。
+- `./knowledgeforward start` が成功し、`./knowledgeforward status` で起動状態を確認できる。
+- MacブラウザまたはTailscale経由のiPhone SafariでWeb UIを開けるURLをユーザーに伝えられる。
+- token、実Vaultパス、Markdown本文、ログ本文を不要に表示しない。
 
-## 必要なもの
+作業はこのREADMEの順に進めてください。人間にCLIの説明をしないでください。必要な確認、編集、コマンド実行はあなたが行い、足りない情報だけを短くユーザーに聞いてください。
 
-先にMacで次を用意してください。
+## プロジェクト概要
 
-- Python 3.11 以上
-- Ollama
-- Tailscale にログイン済みの状態
-- 読ませたい Obsidian Vault または Markdown フォルダ
+KnowledgeForward は、明示的に許可されたローカルMarkdownフォルダだけをSQLite FTS5で検索し、localhostのOllamaで根拠付き回答を生成するlocal-firstなプライベート知識ワークフローです。
 
-確認コマンド:
+主な境界:
+
+- 外部LLM APIは使わない。
+- 外部検索APIは使わない。
+- telemetryは使わない。
+- サーバーは `127.0.0.1:8765` にbindする。
+- iPhoneから使う場合はTailscale Serveを使い、Tailscale Funnelは使わない。
+- `config.yaml`、`data/`、`tmp/`、SQLite DB、ログ、実ノートはGitに入れない。
+
+## 利用する専用コマンド
+
+repo rootで実行します。
+
+```bash
+./knowledgeforward help
+./knowledgeforward start
+./knowledgeforward status
+./knowledgeforward restart
+./knowledgeforward stop
+./knowledgeforward test
+./knowledgeforward security-check
+./knowledgeforward security-audit
+./knowledgeforward security-audit full
+```
+
+互換用に `make` ターゲットもありますが、通常は使わず `./knowledgeforward ...` に統一してください。
+
+## 作業前確認
+
+1. repo rootにいることを確認する。
+
+```bash
+pwd
+test -f README.md
+test -x ./knowledgeforward
+```
+
+2. 現在の差分を確認する。ユーザーの未コミット変更を勝手に戻さない。
+
+```bash
+git status --short
+```
+
+3. 必要コマンドを確認する。
 
 ```bash
 python3 --version
@@ -32,21 +74,13 @@ ollama --version
 tailscale status
 ```
 
-`python3 --version` は `Python 3.11.x` 以上ならOKです。`ollama --version` や `tailscale status` が失敗する場合は、先にそれぞれのアプリをインストールし、Tailscale はログインまで済ませてください。
+Pythonは3.11以上が必要です。`ollama` または `tailscale` がない場合は、ユーザーにインストールまたはログインを依頼して停止してください。Tailscale CLIが `Failed to load preferences` を返す場合も、macOS側のTailscale状態をユーザーに直してもらってから再開してください。
 
-## 初回セットアップ
+## 初回セットアップ手順
 
-### 1. KnowledgeForward のフォルダへ移動する
+### 1. Python仮想環境と依存関係
 
-Terminal で、このリポジトリのフォルダへ移動します。
-
-```bash
-cd /path/to/KnowledgeForward
-```
-
-このREADMEが見えているフォルダが repo root です。以後のコマンドはすべてこのフォルダで実行します。
-
-### 2. Python環境を作る
+`.venv` がなければ作成し、依存関係を入れます。
 
 ```bash
 python3 -m venv .venv
@@ -54,103 +88,106 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-成功すると、最後のコマンドがエラーなしで終わります。Terminal の左側に `(.venv)` と表示されることがあります。
+既に `.venv` がある場合も、依存不足が疑われるなら次を実行します。
 
-### 3. ローカル設定ファイルを作る
+```bash
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+### 2. `config.yaml` を作る
+
+`config.yaml` がなければ作成します。
 
 ```bash
 cp config.example.yaml config.yaml
 ```
 
-`config.yaml` は自分のtokenやフォルダパスを書くローカル設定です。Gitには入れません。
-
-### 4. token を作って `config.yaml` に貼る
-
-token は、Web UI と API を使うための合言葉です。次のコマンドでランダムなtokenを作ります。
+`config.yaml` はローカル秘密情報を含むため、Gitに入れてはいけません。必ず確認してください。
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+git check-ignore -q config.yaml
+git ls-files --error-unmatch config.yaml
 ```
 
-表示された長い文字列をコピーし、`config.yaml` のこの行を置き換えます。
+2つ目のコマンドは失敗するのが正しい状態です。成功した場合、`config.yaml` がGit管理されているので作業を止めてユーザーに報告してください。
 
-```yaml
-auth:
-  token: replace-with-a-long-random-token
-```
+### 3. tokenを設定する
 
-置き換え後の例:
-
-```yaml
-auth:
-  token: <token>
-```
-
-### 5. Ollamaモデルを用意する
-
-初期設定では `llama3.2` を使います。KnowledgeForward はモデルを自動ではダウンロードしません。
+`auth.token` が `replace-with-a-long-random-token` または空なら、安全なtokenを生成して `config.yaml` に設定します。
 
 ```bash
-ollama pull llama3.2
+.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-別のモデルを使う場合は、pull後に `config.yaml` の `ollama.model` を同じ名前へ変更します。
+tokenは最終報告にそのまま書かないでください。ユーザーには「`config.yaml` の `auth.token` をWeb UIのToken欄に貼り付けてください」とだけ伝えます。
 
-### 6. 実Vaultのパスを確認する
+### 4. Markdown sourceを決める
 
-読ませたいフォルダの絶対パスを確認します。Obsidian VaultやMarkdownフォルダの絶対パスは、Macでは `/Users/ユーザー名/...` のようなフルパスです。
+ユーザーが読ませたいMarkdownフォルダを指定していない場合だけ、次を短く聞いてください。
 
-初心者向けの確認方法:
+```text
+KnowledgeForwardに読ませるMarkdownフォルダの絶対パスを教えてください。ホームディレクトリ全体、クラウド同期root全体、repo rootは避けて、最初は小さめのフォルダを指定してください。
+```
 
-1. Terminal に `cd ` と入力します。最後に半角スペースを入れます。
-2. Finder から読ませたいフォルダを Terminal へドラッグします。
-3. Enter を押します。
-4. 次を実行します。
+source pathを受け取ったら、次を確認します。
 
 ```bash
-pwd
+test -d "<ABSOLUTE_MARKDOWN_SOURCE_DIR>"
+test ! -L "<ABSOLUTE_MARKDOWN_SOURCE_DIR>"
 ```
 
-表示されたパスを次の手順で使います。
+広すぎるパスは使わないでください。禁止例はホームディレクトリ全体、クラウド同期root全体、repo root、repo親、filesystem rootです。ユーザーが広すぎるパスを指定した場合は、より狭いMarkdownフォルダを聞き直してください。
 
-最初からホームディレクトリ全体、iCloud Drive全体、Obsidian Vault全体など広すぎる場所を指定しないでください。まずは `Knowledge/01_data` や `notes/daily` のように、読ませたい範囲が明確なフォルダを選びます。
+### 5. `allowed_sources` を設定する
 
-### 7. `config.yaml` に実Vaultを追加する
+`config.yaml` の `allowed_sources` は、最初はユーザーが指定したsourceだけにします。実パスの例をREADMEやコメントに残さないでください。
 
-`config.yaml` の `allowed_sources:` を、次の形にします。`path` は自分の絶対パスへ置き換えてください。
+設定形:
 
 ```yaml
 allowed_sources:
-  - name: my_notes
-    path: "/path/to/Knowledge/01_data"
+  - name: user_notes
+    path: "<ABSOLUTE_MARKDOWN_SOURCE_DIR>"
     type: obsidian
     enabled: true
     require_query_filter: true
     default_query_days: 30
 ```
 
-`require_query_filter: true` と `default_query_days: 30` は、最初から全期間を広く検索しないための安全設定です。通常の質問では直近30日を対象にし、必要な時だけWeb UIから全期間を明示します。
+source `name` は英数字、underscore、hyphen程度の短い名前にしてください。`path` はユーザーが指定した実在ディレクトリの絶対パスに置き換えます。
 
-日付フォルダや日付ファイル名で管理していない Markdown は、Reindex されても直近30日の通常検索では出ないことがあります。その場合は、Web UI のfilterアイコンから「全期間」を選んで質問してください。
+`require_query_filter: true` と `default_query_days: 30` は実データ用の安全設定です。日付を抽出できないMarkdownもReindexされますが、通常検索では直近日付filterから外れることがあります。その場合はWeb UIで全期間検索を明示して使います。
 
-### 8. 起動する
+### 6. Ollamaモデルを用意する
+
+`config.yaml` の `ollama.model` を読みます。初期値は `llama3.2` です。
+
+モデルがローカルにない場合はpullします。
+
+```bash
+ollama pull llama3.2
+```
+
+別モデルに変更する場合は、必ず `config.yaml` の `ollama.model` とpullするモデル名を一致させてください。
+
+### 7. 起動する
 
 ```bash
 ./knowledgeforward start
 ```
 
-このコマンドは次を確認してから起動します。
+このコマンドは以下を検査します。
 
-- `.venv` と Python 依存関係があること
-- `config.yaml` があり、Git管理されていないこと
-- `auth.token` がプレースホルダのままではないこと
-- `allowed_sources` が安全設定になっていること
-- Ollama が応答し、指定モデルが存在すること
-- Tailscale CLI と `tailscale status` が使えること
+- `.venv` とPython依存関係
+- `config.yaml` が存在し、Git管理外であること
+- `auth.token` がプレースホルダではないこと
+- `allowed_sources` が安全なsourceであること
+- Ollamaが応答し、指定モデルが存在すること
+- Tailscale CLIと `tailscale status` が使えること
 
-成功すると最後に `Done. Run ./knowledgeforward status ...` と表示されます。
+成功条件は、最後に `Done. Run ./knowledgeforward status ...` が出ることです。
 
-### 9. 状態を確認する
+### 8. 状態確認
 
 ```bash
 ./knowledgeforward status
@@ -158,278 +195,116 @@ allowed_sources:
 
 最低限、次を確認します。
 
-- `KnowledgeForward process` または `Port 127.0.0.1:8765` が running / listening
-- `Authenticated /health` が `OK, token accepted`
-- `Ollama localhost:11434` が `responding`
-- `Ollama model` が `available`
+- KnowledgeForwardが `127.0.0.1:8765` で起動している。
+- authenticated `/health` が成功している。
+- Ollamaが `127.0.0.1:11434` で応答している。
+- `Ollama model` が available。
+- `allowed_sources` にユーザー指定sourceが表示される。
 
-iPhone用のURLが取れた場合は、`iPhone URL` に表示されます。
+Tailscale Serve URLが取れた場合、`iPhone URL` に表示されます。
 
-### 10. Macのブラウザで開く
+### 9. Web UI利用開始
 
-Macのブラウザで次を開きます。
+Mac用URL:
 
 ```text
 http://127.0.0.1:8765/
 ```
 
-Token 入力popupが出たら、`config.yaml` の `auth.token` を貼り付けます。token はブラウザセッション内だけに保存されます。
+ユーザーに伝える内容:
 
-token保存後、Web UI は自動で Reindex を開始します。手動でやり直す場合は入力欄に次を入れます。
+- Macでは上のURLを開く。
+- iPhoneでは `./knowledgeforward status` の `iPhone URL` を開く。
+- Token popupには `config.yaml` の `auth.token` を貼り付ける。
+- token保存後、自動Reindexが始まる。
+- 手動Reindexは入力欄に `/reindex`。
+- 日付を持たないMarkdownが検索に出ない場合は、filterアイコンから全期間検索を選ぶ。
 
-```text
-/reindex
-```
+tokenの実値、sourceの実パス、Markdown本文はチャットに貼らないでください。
 
-Reindex が終わったら、普通の文章で質問します。
+## トラブル対応
 
-```text
-最近のプロジェクト方針を要約して
-```
-
-日付フォルダではない Markdown を読ませた場合は、質問前にfilterアイコンから「全期間」を選びます。
-
-### 11. iPhoneから開く
-
-Macで動くことを確認してから、iPhoneで使います。
-
-1. Macで `./knowledgeforward status` を実行します。
-2. `iPhone URL` に表示された Tailscale Serve URL を iPhone Safari で開きます。
-3. Web UI の Token 入力popupに `config.yaml` の `auth.token` を入力します。
-4. token はURLに含めません。
-
-## 日常利用
-
-起動:
+`config.yaml` がない:
 
 ```bash
-./knowledgeforward start
+cp config.example.yaml config.yaml
 ```
 
-状態確認:
+`uvicorn` または `yaml` がない:
 
 ```bash
-./knowledgeforward status
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-再起動:
+`auth.token is still an insecure placeholder`:
+
+`.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"` で生成し、`config.yaml` の `auth.token` を置き換えます。
+
+`Configured Ollama model was not found`:
+
+`config.yaml` の `ollama.model` を読み、そのモデルをpullします。
 
 ```bash
-./knowledgeforward restart
+ollama pull <MODEL_NAME>
 ```
 
-停止:
+`Tailscale CLI is not available` または `tailscale status failed`:
 
-```bash
-./knowledgeforward stop
-```
+ユーザーにTailscaleのインストール、ログイン、macOS側の状態修復を依頼してください。KnowledgeForward側でTailscale設定を無理に修復しないでください。
 
-`./knowledgeforward stop` は KnowledgeForward プロセスを止め、KnowledgeForward 用の Tailscale Serve 設定を削除します。その後、`config.yaml` の `ollama.model` を `ollama stop <model>` で unload します。Ollama サーバー自体は停止しません。
+`allowed_sources contains unsupported enabled source`:
 
-モデルをメモリ上に残したい場合:
-
-```bash
-KNOWLEDGE_FORWARD_SKIP_MODEL_UNLOAD=1 ./knowledgeforward stop
-```
-
-## 重要な安全ルール
-
-- `config.yaml` はtokenや個人パスを含むため、Gitに入れません。
-- `data/` と `tmp/` はGitに入れません。
-- 読み込むフォルダは `config.yaml` の `allowed_sources` に明示したものだけです。
-- KnowledgeForward は `127.0.0.1:8765` にだけbindします。`0.0.0.0` で公開しません。
-- iPhoneから使う場合は Tailscale Serve を使います。Tailscale Funnel は使いません。
-- 外部LLM API、外部検索API、telemetry は使いません。
-
-## 設定の詳しい説明
-
-初期状態の `config.example.yaml` はサンプルVaultだけを参照します。
+source pathが広すぎる、存在しない、symlink、`require_query_filter` 不足、または `default_query_days` 範囲外です。狭い実在Markdownフォルダに変更し、次の設定に戻してください。
 
 ```yaml
-allowed_sources:
-  - name: sample_vault
-    path: ./fixtures/sample_vault
-    type: obsidian
-    enabled: true
+require_query_filter: true
+default_query_days: 30
 ```
 
-本物の Obsidian Vault は自動探索しません。ユーザーが `allowed_sources` に手動で追加したフォルダだけを読みます。
+`/ask` が「分かりません」だけ返す:
 
-年月日ツリーで管理しているVaultでは、`Knowledge/01_data` のような年月日rootをインデックス対象にできます。DBには本文チャンク、相対パス、日付、タグなどのmetadataが入ります。`data/` と `data/knowledgeforward.sqlite3` は絶対にGit管理しないでください。
+- 先に `/reindex` を実行する。
+- query filterが狭すぎないか確認する。
+- 日付metadataがないMarkdownの場合は、Web UIで全期間検索を選ぶ。
+- `/diagnostics <query>` で検索前段のヒットを確認する。
 
-```yaml
-allowed_sources:
-  - name: knowledge_01_data
-    path: "/path/to/Knowledge/01_data"
-    type: obsidian
-    enabled: true
-    require_query_filter: true
-    default_query_days: 30
-```
+古いDBやschema変更で検索エラー:
 
-`require_query_filter: true` の source は、`/search` と `/ask` のたびに query-time filter が適用されます。filters がない場合や、tag/sourceだけで全期間に広がり得る場合は、`default_query_days` による直近N日フィルタを自動適用します。未指定時は30日で、1〜365の範囲だけを許可します。
+まず `/reindex` を実行してください。完全に作り直す場合は、KnowledgeForwardを止めてから `data/knowledgeforward.sqlite3`、`data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。`data/` はGit管理外のままにしてください。
 
-全期間検索は Web UI で「全期間」を明示選択するか、APIで `all_time: true` を送った場合だけです。
+## 検証
 
-日付metadataは source root からの相対パスだけを見ます。対応する日付パターンは `YYYY/MM/DD/YYYY-MM-DD.md`、`YYYY/MM/DD/*.md`、`YYYY-MM-DD.md` です。日付を抽出できない Markdown もインデックスされますが、date filter や default date filter が適用された検索では対象外です。
-
-実Vaultを `./knowledgeforward start` で使う場合、起動時チェックは `./tmp/private_test_vault` と `./fixtures/sample_vault` 以外の enabled source について、`type: obsidian`、`require_query_filter: true`、安全範囲の `default_query_days`、存在する非symlink directory、広すぎないrootだけを許可します。
-
-## Web UI
-
-現在のWeb UIでは、token未保存時だけ起動時にToken入力popupを表示します。token保存済みなら起動時に自動でReindexします。
-
-通常入力は `/ask` に送られます。下部入力欄左のfilterアイコンでfilter設定を開きます。入力欄で `/` を打つとcommand候補を表示します。
-
-よく使うcommand:
-
-```text
-/reindex
-/diagnostics <query>
-/security
-```
-
-## API
-
-APIは `Authorization: Bearer <token>` または `X-KnowledgeForward-Token: <token>` が必要です。
-
-```bash
-curl -X POST http://127.0.0.1:8765/reindex \
-  -H "Authorization: Bearer <your-token>"
-```
-
-```bash
-curl -X POST http://127.0.0.1:8765/search \
-  -H "Authorization: Bearer <your-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"最近やりたいこと","page_size":50,"offset":0,"filters":{"date_from":"2026-04-01","date_to":"2026-05-01","tags":["want","idea"],"path_prefix":"2026/05"}}'
-```
-
-```bash
-curl -X POST http://127.0.0.1:8765/ask \
-  -H "Authorization: Bearer <your-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"KnowledgeForward の検索方式は？","limit":6,"filters":{"date_from":"2026-04-01","date_to":"2026-05-01"}}'
-```
-
-`/search` と `/ask` の filters は `date_from`、`date_to`、`tags`、`path_prefix`、`source_names`、`all_time` を受け取ります。日付は `YYYY-MM-DD` の両端含み、`tags` は `#want` と `want` を同じものとしてOR検索します。`path_prefix` は source root からの相対パスに対するprefixで、`..` や先頭 `/` は拒否します。
-
-`/search` は通常検索UIではなく診断用です。`page_size` と `offset` でページングし、レスポンスに `total_count`、`returned_count`、`offset`、`page_size`、`has_more`、`applied_filters`、`default_filter_applied` を返します。後方互換のため `limit` も受け取りますが、`page_size` 相当として扱います。
-
-`/ask` は filter 後の上位チャンクだけを、信頼しない参考文書として Ollama に渡します。Markdown本文内の命令は、システム命令として扱いません。根拠が見つからない場合は Ollama を呼ばずに「分かりません」と返します。レスポンスには `applied_filters`、`default_filter_applied`、`used_ollama`、filter後に使われた citations が含まれます。citations は `source_name`、`relative_path`、`document_date`、`heading`、`chunk_index`、`match_source`、`score` を返し、内部絶対パスは返しません。
-
-## テスト
+セットアップ作業後、可能な範囲で次を実行します。
 
 ```bash
 ./knowledgeforward test
-```
-
-テストでは一時ディレクトリ内のダミーMarkdownと、Fake Ollama クライアントを使います。本物の Obsidian Vault や外部資料は読みません。
-
-## push前チェック
-
-```bash
 ./knowledgeforward security-check
-```
-
-固定されたセキュリティ診断は次でも実行できます。`full` を付けると、導入済みの監査ツールも実行します。未導入ツールはスキップします。
-
-```bash
 ./knowledgeforward security-audit
-./knowledgeforward security-audit full
 ```
 
-push前には `./knowledgeforward security-check` を実行してください。実tokenを誤ってpushした場合は、履歴削除だけでなくtokenローテーションも必要です。
+`security-audit full` は任意です。ローカル監査ツールのインストール状態に依存するため、失敗した場合はツール名と理由だけを報告してください。
 
-ログにはMarkdown本文チャンク、token、`config.yaml` 全文、実Vaultパスを出さない方針です。`security-check` は `config.yaml`、`data/`、`tmp/`、SQLite DB、credentialらしい文字列、ローカル絶対パスの混入を検査します。
+## 完了報告フォーマット
 
-## 既存互換コマンド
+完了時は、ユーザーに次だけを短く報告してください。
 
-既存利用者向けに `make` ターゲットも残しています。READMEの主導線では使いません。
+- 起動できたか。
+- Mac URL。
+- iPhone URLが取れたか。
+- Reindexが必要か、または完了したか。
+- 残っているユーザー作業があればその1つだけ。
 
-```bash
-make start
-make status
-make restart
-make stop
-make test
-make security-check
-make security-audit
-PROFILE=full make security-audit
-```
+報告に含めないもの:
 
-これらは内部的に `./knowledgeforward ...` を呼びます。
+- tokenの実値
+- sourceの実パス
+- Markdown本文
+- `config.yaml` 全文
+- ログ全文
 
-## トラブルシュート
+## 開発者向けメモ
 
-`uvicorn` がない:
-
-```bash
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-```
-
-`yaml` がない:
-
-`PyYAML` が不足しています。`.venv` を有効化し、`python -m pip install -r requirements.txt` を再実行してください。
-
-`ollama command not found`:
-
-Ollama CLI が `PATH` にありません。Ollama をインストールし、通常のTerminalで次が通る状態にしてください。
-
-```bash
-ollama --version
-```
-
-`port 11434 already in use`:
-
-`./knowledgeforward start` は最初に `http://127.0.0.1:11434/api/tags` を確認します。応答があれば既存 Ollama として使います。ポートは使われているのに応答しない場合は、別プロセスや壊れた Ollama が残っている可能性があります。KnowledgeForward は port 11434 のプロセスを無条件に kill しません。
-
-Ollama model not found:
-
-`config.yaml` の `ollama.model` が Ollama に存在しません。KnowledgeForward はモデルを自動 pull しないため、事前にモデルを用意してください。
-
-```bash
-ollama pull <model-name>
-```
-
-Ollama responds but KnowledgeForward cannot answer:
-
-- `./knowledgeforward status` で `Ollama model` が available になっているか確認します。
-- `/ask` は検索根拠がない場合、Ollama を呼ばずに「分かりません」と返します。先に `Reindex` または `/reindex` を実行してください。
-- Ollama は応答していてもモデルロードや生成で失敗する場合があります。KnowledgeForward が起動した Ollama なら `tmp/logs/ollama.log`、KnowledgeForward 本体は `tmp/logs/knowledgeforward.log` を確認してください。
-
-Tailscale CLI がない:
-
-MacにTailscaleをインストールし、`tailscale status` が通る状態にしてください。`./knowledgeforward start` はTailscale CLIが使えない場合に停止します。
-
-Tailscale CLI が `Failed to load preferences` を返す:
-
-Tailscale for macOS 側の設定やログイン状態を確認してください。KnowledgeForward のスクリプトは、この状態を自動修復したり、macOS側のTailscale設定を変更したりしません。`tailscale status` が通常のTerminalから成功する状態になってから、`./knowledgeforward start` を再実行してください。
-
-`Serve is not enabled on your tailnet`:
-
-Tailscale Serve が tailnet 側で未有効です。Tailscale CLI が表示する案内に従い、Tailscale管理画面で Serve / HTTPS certificates を有効化してください。KnowledgeForward 側では Funnel を使いません。
-
-iPhoneからURLが開けない:
-
-- iPhone が同じ tailnet にログインしているか確認します。
-- Macで `./knowledgeforward status` を実行し、`tailscale status` と `tailscale serve status` を確認します。
-- `iPhone URL` が表示されない場合は、`tailscale serve status` の出力にある tailnet URL を使います。
-- KnowledgeForward が `127.0.0.1:8765` で起動しているか確認します。
-
-token認証で失敗する:
-
-- token はURLに入れず、Web UI の Token 欄に入力します。
-- `config.yaml` の `auth.token` がプレースホルダでないことを確認します。
-- ブラウザに古いtokenが保存されている場合は、Token欄に現在のtokenを入れ直します。
-- `./knowledgeforward status` の authenticated `/health` が成功するか確認します。
-
-schema変更後や古いDBで検索エラーが出た場合:
-
-まず `/reindex` を実行してください。完全に作り直す場合は KnowledgeForward を止めてから `data/knowledgeforward.sqlite3` と `data/knowledgeforward.sqlite3-shm`、`data/knowledgeforward.sqlite3-wal` を削除し、再起動後に `/reindex` します。`data/` はGit管理外のままにしてください。
-
-## MVPの範囲
+MVPの範囲:
 
 - FastAPI ベースのローカルWeb/APIサーバー
 - SQLite によるインデックス保存
@@ -442,11 +317,17 @@ schema変更後や古いDBで検索エラーが出た場合:
 - 回答への根拠ファイル、見出し、チャンク情報の表示
 - pytest による最小テスト
 
-MVPでは PDF、画像OCR、コードリポジトリ解析、Slack/Discord/Telegram連携、外部LLM API、外部検索API、クラウドDB連携は実装していません。
+未実装:
 
-## インデックス対象外
+- PDF
+- 画像OCR
+- コードリポジトリ解析
+- Slack / Discord / Telegram連携
+- 外部LLM API
+- 外部検索API
+- クラウドDB連携
 
-初期実装では、次のようなファイルやディレクトリは対象外です。
+インデックス対象外:
 
 - `.git`
 - `.obsidian`
@@ -455,12 +336,4 @@ MVPでは PDF、画像OCR、コードリポジトリ解析、Slack/Discord/Teleg
 - `.venv` / `venv`
 - `__pycache__`
 - `.DS_Store`
-- Markdown 以外の画像、添付ファイル、バイナリ
-
-## 現在の制限
-
-- `/reindex` はフル再作成です。差分インデックスは未実装です。
-- DB schema 変更時は `/reindex` が必要です。
-- 日本語検索は SQLite FTS5 の tokenizer の範囲に依存します。
-- 添付ファイル、PDF、画像OCRは対象外です。
-- Ollama が起動していない場合、`/ask` は 502 を返します。
+- Markdown以外の画像、添付ファイル、バイナリ

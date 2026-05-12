@@ -37,10 +37,10 @@ allowed_sources:
     type: obsidian
     enabled: true
 
-  # For a real dated data root, copy this block into local config.yaml and
-  # replace /path/to with an explicit local path. Do not commit config.yaml.
-  # - name: knowledge_01_data
-  #   path: /path/to/Knowledge/01_data
+  # For a real Markdown source, copy this block into local config.yaml and
+  # replace the placeholder with an explicit local absolute path. Do not commit config.yaml.
+  # - name: user_notes
+  #   path: <ABSOLUTE_MARKDOWN_SOURCE_DIR>
   #   type: obsidian
   #   enabled: true
   #   require_query_filter: true
