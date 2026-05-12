@@ -7,7 +7,7 @@ PYTHON="$REPO_ROOT/.venv/bin/python"
 PORT="8765"
 OLLAMA_TAGS_URL="http://127.0.0.1:11434/api/tags"
 
-# shellcheck source=scripts/runtime_env.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/runtime_env.sh"
 
 info() {

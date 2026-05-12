@@ -7,7 +7,6 @@ from pathlib import Path
 import secrets
 import shlex
 import shutil
-import subprocess
 from typing import Iterable
 
 from .config import CONFIG_PATH_ENV, RUNTIME_HOME_ENV, resolve_config_path
@@ -204,35 +203,28 @@ allowed_sources:
 
 
 def _git_remote_warning(path: Path) -> str | None:
-    if not _is_git_worktree(path):
+    git_dir = _git_dir(path)
+    if git_dir is None:
         return None
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(path), "remote", "-v"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if completed.stdout.strip():
+    config_path = git_dir / "config"
+    if config_path.exists() and "[remote " in config_path.read_text(encoding="utf-8", errors="replace"):
         return "Runtime target is a Git worktree with a remote; no remote was changed."
     return None
 
 
-def _is_git_worktree(path: Path) -> bool:
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return completed.returncode == 0 and completed.stdout.strip() == "true"
+def _git_dir(path: Path) -> Path | None:
+    git_entry = path / ".git"
+    if git_entry.is_dir():
+        return git_entry
+    if not git_entry.is_file():
+        return None
+    first_line = git_entry.read_text(encoding="utf-8", errors="replace").splitlines()[0:1]
+    if not first_line or not first_line[0].startswith("gitdir:"):
+        return None
+    git_dir = Path(first_line[0].removeprefix("gitdir:").strip()).expanduser()
+    if not git_dir.is_absolute():
+        git_dir = path / git_dir
+    return git_dir.resolve()
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
