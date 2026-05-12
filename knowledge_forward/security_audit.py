@@ -84,8 +84,9 @@ def _run_full_checks(repo: Path, redaction_tokens: tuple[str, ...]) -> list[Secu
     checks: list[SecurityCheckResult] = [
         _run_command_check(repo, "make test", ["make", "test"], redaction_tokens, timeout_seconds=120),
     ]
+    site_packages = _venv_site_packages(repo)
     tool_checks = (
-        ("pip-audit", "pip-audit", ["-r", "requirements.txt"], 120),
+        ("pip-audit", "pip-audit", ["--path", str(site_packages)], 120),
         ("bandit", "bandit", ["-r", "knowledge_forward", "-x", "tests"], 120),
         (
             "shellcheck",
@@ -110,6 +111,10 @@ def _run_full_checks(repo: Path, redaction_tokens: tuple[str, ...]) -> list[Secu
             )
         )
     return checks
+
+
+def _venv_site_packages(repo: Path) -> Path:
+    return repo / ".venv" / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
 
 
 def _run_git_status(repo: Path, redaction_tokens: tuple[str, ...]) -> SecurityCheckResult:
