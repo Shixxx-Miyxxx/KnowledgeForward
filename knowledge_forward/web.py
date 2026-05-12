@@ -777,6 +777,14 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
       justify-self: end;
     }
 
+    .token-error {
+      min-height: 20px;
+      margin: 10px 2px 0;
+      color: var(--danger);
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+
     @media (min-width: 720px) {
       .chat-history { padding-left: 22px; padding-right: 22px; }
       .composer-wrap { padding-left: 18px; padding-right: 18px; }
@@ -867,6 +875,7 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
       <input id="token" type="password" autocomplete="current-password" placeholder="API token" aria-label="Token">
       <button id="saveTokenButton" class="token-save-button send-button ready" type="button" aria-label="Save">↑</button>
     </div>
+    <div id="tokenError" class="token-error" aria-live="polite" hidden></div>
   </section>
 
   <div id="filterOverlay" class="overlay" hidden></div>
@@ -914,7 +923,9 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
   <script>
     const TOKEN_STORAGE_KEY = "knowledgeforward_token";
     const FILTER_STORAGE_KEY = "knowledgeforward_filters";
+    const INVALID_TOKEN_MESSAGE = "This token is invalid.";
     const API_PATHS = Object.freeze({
+      health: "/health",
       reindex: "/reindex",
       search: "/search",
       ask: "/ask"__DEV_SECURITY_API_PATH__
@@ -943,6 +954,7 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
     };
 
     const tokenInput = document.getElementById("token");
+    const saveTokenButton = document.getElementById("saveTokenButton");
     const chatInput = document.getElementById("chatInput");
     const chatHistory = document.getElementById("chatHistory");
     const emptyState = document.getElementById("emptyState");
@@ -959,6 +971,7 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
     const periodMenu = document.getElementById("periodMenu");
     const tokenOverlay = document.getElementById("tokenOverlay");
     const tokenDialog = document.getElementById("tokenDialog");
+    const tokenError = document.getElementById("tokenError");
 
     const filterOverlay = document.getElementById("filterOverlay");
     const filterPanel = document.getElementById("filterPanel");
@@ -988,7 +1001,7 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
       maybeStartInitialReindex();
     }
 
-    document.getElementById("saveTokenButton").addEventListener("click", saveToken);
+    saveTokenButton.addEventListener("click", saveToken);
     filterButton.addEventListener("click", openFilterPanel);
     commandMenu.addEventListener("pointerdown", event => {
       const option = event.target.closest("[data-command]");
@@ -1030,10 +1043,11 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
       window.visualViewport.addEventListener("scroll", updateViewportLayout);
     }
 
-    function headers() {
+    function headers(token = tokenInput.value) {
+      const authToken = String(token || "").trim();
       return {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${tokenInput.value}`
+        "Authorization": `Bearer ${authToken}`
       };
     }
 
@@ -1157,6 +1171,9 @@ __DEV_SECURITY_HANDLER__
       let data = {};
       try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
       if (!response.ok) {
+        if (response.status === 401) {
+          handleAuthFailure();
+        }
         throw new Error(messageForStatus(response.status, data));
       }
       return data;
@@ -1164,7 +1181,7 @@ __DEV_SECURITY_HANDLER__
 
     function messageForStatus(status, data) {
       if (status === 400) return "Filterまたは入力内容を確認してください。";
-      if (status === 401) return "Tokenが未入力、または認証に失敗しました。";
+      if (status === 401) return INVALID_TOKEN_MESSAGE;
       if (status === 409) return data && data.detail ? sanitizeDisplayText(data.detail) : "/reindex を実行してください。";
       if (status === 422) return "入力内容を確認してください。";
       if (status === 502) return "回答生成に失敗しました。Ollamaの状態を確認してください。";
@@ -1647,12 +1664,70 @@ __DEV_SECURITY_HANDLER__
       }
     }
 
-    function saveToken() {
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, tokenInput.value);
+    async function saveToken() {
+      const candidate = tokenInput.value.trim();
+      clearTokenError();
+      if (!candidate) {
+        showTokenError(INVALID_TOKEN_MESSAGE);
+        tokenInput.focus();
+        return;
+      }
+      setTokenSavePending(true);
+      try {
+        await validateToken(candidate);
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, candidate);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        tokenInput.value = candidate;
+        statusLine.textContent = "token saved for session";
+        closeTokenDialog();
+        maybeStartInitialReindex();
+      } catch (error) {
+        showTokenError(error && error.message ? error.message : INVALID_TOKEN_MESSAGE);
+        tokenInput.focus();
+        tokenInput.select();
+      } finally {
+        setTokenSavePending(false);
+      }
+    }
+
+    async function validateToken(candidate) {
+      let response;
+      try {
+        response = await fetch(API_PATHS.health, { method: "GET", headers: headers(candidate) });
+      } catch {
+        throw new Error("Token validation failed.");
+      }
+      if (response.status === 401) {
+        throw new Error(INVALID_TOKEN_MESSAGE);
+      }
+      if (!response.ok) {
+        throw new Error(messageForStatus(response.status, {}));
+      }
+    }
+
+    function handleAuthFailure() {
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
       localStorage.removeItem(TOKEN_STORAGE_KEY);
-      statusLine.textContent = "token saved for session";
-      closeTokenDialog();
-      maybeStartInitialReindex();
+      tokenInput.value = "";
+      initialReindexPending = true;
+      initialReindexStarted = false;
+      showTokenError(INVALID_TOKEN_MESSAGE);
+      openTokenDialog();
+    }
+
+    function showTokenError(message) {
+      tokenError.textContent = sanitizeDisplayText(message);
+      tokenError.hidden = false;
+      statusLine.textContent = message;
+    }
+
+    function clearTokenError() {
+      tokenError.textContent = "";
+      tokenError.hidden = true;
+    }
+
+    function setTokenSavePending(pending) {
+      saveTokenButton.disabled = pending;
     }
 
     function loadToken() {
@@ -1676,6 +1751,7 @@ __DEV_SECURITY_HANDLER__
 
     function closeTokenDialog() {
       if (!tokenInput.value.trim()) return;
+      clearTokenError();
       tokenOverlay.hidden = true;
       tokenDialog.hidden = true;
     }

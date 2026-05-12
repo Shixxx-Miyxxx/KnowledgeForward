@@ -115,6 +115,8 @@ def test_web_html_is_chat_ui_and_omits_sensitive_fixed_content() -> None:
     assert 'class="token-input-shell"' in token_html
     assert 'id="saveTokenButton" class="token-save-button send-button ready" type="button" aria-label="Save">↑</button>' in token_html
     assert 'id="tokenTitle">Token</h2>' in token_html
+    assert 'id="tokenError" class="token-error" aria-live="polite" hidden' in token_html
+    assert 'const INVALID_TOKEN_MESSAGE = "This token is invalid."' in html
     assert "margin: 0 0 14px 1px;" in html
     assert "width: 42px;" in html
     assert ">保存</button>" not in token_html
@@ -293,9 +295,18 @@ def test_web_html_is_chat_ui_and_omits_sensitive_fixed_content() -> None:
     assert "overflow-y: auto;" in html
     assert "maybeStartInitialReindex" in html
     assert "sessionStorage.getItem(TOKEN_STORAGE_KEY)" in html
-    assert "sessionStorage.setItem(TOKEN_STORAGE_KEY, tokenInput.value)" in html
+    assert "health: \"/health\"" in html
+    assert "await validateToken(candidate)" in html
+    assert "sessionStorage.setItem(TOKEN_STORAGE_KEY, candidate)" in html
+    assert html.index("await validateToken(candidate)") < html.index(
+        "sessionStorage.setItem(TOKEN_STORAGE_KEY, candidate)"
+    )
+    assert "sessionStorage.removeItem(TOKEN_STORAGE_KEY)" in html
     assert "localStorage.removeItem(TOKEN_STORAGE_KEY)" in html
     assert "localStorage.setItem(TOKEN_STORAGE_KEY, tokenInput.value)" not in html
+    assert "handleAuthFailure()" in html
+    assert "openTokenDialog()" in html
+    assert "saveTokenButton.disabled = pending" in html
     assert "function positionQuickMenu()" not in html
     assert "filterButton.getBoundingClientRect()" not in html
     assert "quickMenu.style.bottom" not in html
