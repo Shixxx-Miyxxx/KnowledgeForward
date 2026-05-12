@@ -416,7 +416,7 @@ main() {
   start_knowledgeforward
   check_tailscale
   enable_tailscale_serve
-  info "Done. Run make status to see the iPhone URL if Tailscale reports one."
+  info "Done. Run ./knowledgeforward status to see the iPhone URL if Tailscale reports one."
 }
 
 main "$@"

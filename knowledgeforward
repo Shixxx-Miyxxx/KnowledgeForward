@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="$SCRIPT_DIR/.venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+  PYTHON="python3"
+fi
+
+usage() {
+  cat <<'EOF'
+KnowledgeForward command
+
+Usage:
+  ./knowledgeforward start
+  ./knowledgeforward status
+  ./knowledgeforward restart
+  ./knowledgeforward stop
+  ./knowledgeforward test
+  ./knowledgeforward security-check
+  ./knowledgeforward security-audit [quick|full]
+  ./knowledgeforward help
+
+Start here:
+  ./knowledgeforward start
+  ./knowledgeforward status
+
+Run this command from the KnowledgeForward repository root.
+EOF
+}
+
+require_no_extra_args() {
+  local command_name="$1"
+  shift
+  if [ "$#" -ne 0 ]; then
+    printf 'ERROR: %s does not accept extra arguments.\n\n' "$command_name" >&2
+    usage >&2
+    exit 2
+  fi
+}
+
+cd "$SCRIPT_DIR"
+
+command_name="${1:-help}"
+case "$command_name" in
+  start)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    bash scripts/start.sh
+    ;;
+  status)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    bash scripts/status.sh
+    ;;
+  restart)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    bash scripts/restart.sh
+    ;;
+  stop)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    bash scripts/stop.sh
+    ;;
+  test)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    "$PYTHON" -m pytest
+    "$PYTHON" -m compileall knowledge_forward tests
+    ;;
+  security-check)
+    shift
+    require_no_extra_args "$command_name" "$@"
+    bash scripts/security_check.sh
+    ;;
+  security-audit)
+    shift
+    profile="${1:-quick}"
+    if [ "$#" -gt 1 ]; then
+      printf 'ERROR: security-audit accepts at most one profile: quick or full.\n\n' >&2
+      usage >&2
+      exit 2
+    fi
+    case "$profile" in
+      quick|full)
+        "$PYTHON" -m knowledge_forward.security_audit "$profile"
+        ;;
+      *)
+        printf 'ERROR: unknown security-audit profile: %s\n\n' "$profile" >&2
+        usage >&2
+        exit 2
+        ;;
+    esac
+    ;;
+  help|-h|--help)
+    if [ "$#" -gt 0 ]; then
+      shift
+    fi
+    require_no_extra_args "$command_name" "$@"
+    usage
+    ;;
+  *)
+    printf 'ERROR: unknown command: %s\n\n' "$command_name" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

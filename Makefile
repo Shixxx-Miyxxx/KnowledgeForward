@@ -1,25 +1,26 @@
-.PHONY: start stop restart status test security-check security-audit
-PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+.PHONY: help start stop restart status test security-check security-audit
 PROFILE ?= quick
 
+help:
+	./knowledgeforward help
+
 start:
-	bash scripts/start.sh
+	./knowledgeforward start
 
 stop:
-	bash scripts/stop.sh
+	./knowledgeforward stop
 
 restart:
-	bash scripts/restart.sh
+	./knowledgeforward restart
 
 status:
-	bash scripts/status.sh
+	./knowledgeforward status
 
 test:
-	$(PYTHON) -m pytest
-	$(PYTHON) -m compileall knowledge_forward tests
+	./knowledgeforward test
 
 security-check:
-	bash scripts/security_check.sh
+	./knowledgeforward security-check
 
 security-audit:
-	$(PYTHON) -m knowledge_forward.security_audit $(PROFILE)
+	./knowledgeforward security-audit $(PROFILE)
