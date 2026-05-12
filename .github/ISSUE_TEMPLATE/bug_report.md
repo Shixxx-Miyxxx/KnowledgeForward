@@ -17,7 +17,8 @@ labels: bug
 - OS:
 - Python:
 - Ollama model:
+- Runtime mode: `KNOWLEDGE_FORWARD_HOME`, `KNOWLEDGE_FORWARD_CONFIG`, or legacy repo-local
 
 ## Notes
 
-Do not include real notes, tokens, logs, local absolute paths, or private screenshots.
+Do not include real notes, tokens, private runtime `config.yaml`, databases, logs, PID files, local absolute paths, or private screenshots.

@@ -8,24 +8,27 @@ Thanks for helping improve KnowledgeForward.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-cp config.example.yaml config.yaml
+RUNTIME_HOME="$HOME/.knowledgeforward-local-dev"
+./knowledgeforward init-runtime "$RUNTIME_HOME"
+export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
-Set a local token in `config.yaml` before running the server. Do not commit `config.yaml`.
+Use the generated private runtime for local manual runs. Do not put real notes, tokens, logs, SQLite databases, PID files, or local absolute paths in the public repository. Tests should use `tmp_path`, `fixtures/sample_vault`, or synthetic data instead of a developer's real runtime.
 
 ## Checks
 
 Run these before opening a pull request:
 
 ```bash
-make test
-make security-check
+./knowledgeforward test
+./knowledgeforward security-check
 ```
 
 ## Security Rules
 
 - Do not commit real notes, vaults, logs, SQLite databases, tokens, or local absolute paths.
 - Use `fixtures/sample_vault` or synthetic test data only.
+- Keep private runtime files outside the repository. This includes `config.yaml`, `data/`, `logs/`, `run/`, and PID files.
 - Keep default behavior local-first and private-by-default.
 - Do not add external network calls, telemetry, or broad filesystem access without an explicit design discussion.
 

@@ -1,14 +1,12 @@
 # KnowledgeForwardを使う前に
 
-この文書は、KnowledgeForwardを使う前に「何をするソフトなのか」「安全面で何を確認すればよいのか」を見るための案内です。
+この文書は、KnowledgeForwardを使う前に「何をするソフトなのか」「安全面で何を確認すればよいのか」「最初にどう起動するのか」を見るための案内です。
 
-READMEはCodex、Claude、またはファイル編集とコマンド実行ができるLLMに渡すための実行指示書です。自分で細かいコマンドを読むより、READMEをLLMに渡して作業してもらう前提で作っています。
+公開 repo の入口は [README](../README.md) です。Codex や Claude などのコーディングエージェントに初回セットアップを任せる場合は [agent setup guide](agent-setup.md) を渡してください。
 
-## 詳しくない人へ
+## まず安全面を確認したい場合
 
-### まず安全面を確認したい場合
-
-KnowledgeForwardはCodexで作成しているOSSです。使う前に不安がある場合は、次のファイルをCodex、Claude、ChatGPT、または詳しい人に渡して「危ない点がないか確認して」と聞いてください。
+KnowledgeForwardはOSSです。使う前に不安がある場合は、次のファイルをCodex、Claude、ChatGPT、または詳しい人に渡して「危ない点がないか確認して」と聞いてください。
 
 - `README.md`
 - `docs/start-here.md`
@@ -23,18 +21,18 @@ KnowledgeForwardはCodexで作成しているOSSです。使う前に不安が�
 
 KnowledgeForwardは、次の方針で作っています。
 
-- ユーザーがprivate runtimeの `config.yaml` に明示したMarkdownフォルダだけを読みます。
-- 外部LLM APIは使いません。
-- 外部検索APIは使いません。
-- telemetryは使いません。
-- Mac内の `127.0.0.1` に閉じて起動します。
-- iPhoneから使う場合はTailscale Serveを使います。
-- Tailscale Funnelでインターネット全体へ公開する前提ではありません。
-- 実運用の `config.yaml`、DB、ログ、個人ノートは公開repo外のprivate runtimeに置く前提です。
+- private runtime の `config.yaml` に明示した Markdown フォルダだけを読みます。
+- 外部 LLM API は使いません。
+- 外部検索 API は使いません。
+- telemetry は使いません。
+- Mac 内の `127.0.0.1` に閉じて起動します。
+- iPhone から使う場合は Tailscale Serve を使います。
+- Tailscale Funnel でインターネット全体へ公開する前提ではありません。
+- 実運用の `config.yaml`、DB、ログ、PID、個人ノートは公開 repo 外の private runtime に置く前提です。
 
 ただし、OSSなので「絶対に安全」とは言えません。利用は自己責任です。不安が残る場合は、詳しい人やLLMに確認してから使ってください。
 
-### これは何をするものか
+## これは何をするものか
 
 KnowledgeForwardは、自分のMarkdownファイルを検索し、その検索結果を根拠としてローカルのOllamaに回答を作らせるツールです。
 
@@ -51,75 +49,34 @@ KnowledgeForwardは、自分のMarkdownファイルを検索し、その検索�
 - Tailscale Funnelなどでインターネット全体へ公開する。
 - 法律、医療、金融などの重要判断を回答だけで決める。
 
-### 使い始める方法
+## 初回利用の流れ
 
-この文書だけでセットアップを進める必要はありません。READMEをCodexやClaudeなどに渡して、次のように依頼してください。
-
-```text
-このREADMEに従ってKnowledgeForwardを使い始められる状態にしてください。
-私が指定したMarkdownフォルダだけを読ませてください。
-token、実パス、ノート本文、ログ全文はチャットに貼らないでください。
-```
-
-LLMに作業してもらうときも、読ませるフォルダは小さめにしてください。ホームディレクトリ全体、クラウド同期root全体、repo rootは指定しないでください。
-
-パスの例が必要な場合は、実パスを公開せずに `<ABSOLUTE_MARKDOWN_SOURCE_DIR>` のような置き方で相談してください。
-
-### 免責
-
-- KnowledgeForwardは無保証のOSSです。
-- token、DB、ログ、個人ノートの管理は利用者自身の責任です。
-- LLMの回答は間違うことがあります。
-- 重要な判断は、回答だけに頼らず原文や専門家を確認してください。
-- 法律、医療、金融などの判断にそのまま使わないでください。
-
-## 詳しい人向け補足
-
-### 構成
-
-KnowledgeForwardは次の構成です。
-
-- FastAPI: ローカルWeb/APIサーバー
-- SQLite FTS5: Markdownチャンクの全文検索
-- Ollama: localhostのローカルLLM
-- Tailscale Serve: tailnet内のiPhone Safari向け公開
-
-外部LLM API、外部検索API、telemetryはデフォルトで使いません。
-
-### 主要コマンド
-
-repo rootで `./knowledgeforward` を使います。
+1. repo root で Python 仮想環境を作ります。
 
 ```bash
-./knowledgeforward start
-./knowledgeforward status
-./knowledgeforward restart
-./knowledgeforward stop
-./knowledgeforward test
-./knowledgeforward security-check
-./knowledgeforward security-audit
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-`make` ターゲットも互換用に残していますが、主導線は `./knowledgeforward ...` です。
-
-### private runtime
-
-実運用では公開repo直下に `config.yaml`、DB、ログを置かず、repo外にprivate runtimeを作ります。
+2. 公開 repo 外に private runtime を作ります。
 
 ```bash
-RUNTIME_HOME="/path/to/40_private_runtime/KnowledgeForward-local"
+RUNTIME_HOME="$HOME/.knowledgeforward-local"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
 export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
-./knowledgeforward start
 ```
 
-`30_repo/KnowledgeForward` はGitHub push用の公開repoとして扱い、公開対象はtracked filesだけにしてください。repo-local `config.yaml`、`data/`、`tmp/` は互換用のlegacy運用であり、実運用では非推奨です。
+`init-runtime` は private runtime に次を作ります。既存ファイルは上書きしません。
 
-### 設定と安全境界
+- `config.yaml`
+- `data/`
+- `logs/`
+- `run/`
+- `.gitignore`
+- `sample_vault/`
 
-private runtimeの `config.yaml` はローカル設定ファイルで、公開repoではGit管理しません。`allowed_sources` に明示されたフォルダだけを読みます。
-
-実データ用sourceは次の形を基本にします。
+3. private runtime の `config.yaml` で、読ませる Markdown フォルダを小さめに指定します。ホームディレクトリ全体、クラウド同期 root 全体、repo root は指定しないでください。
 
 ```yaml
 allowed_sources:
@@ -131,9 +88,34 @@ allowed_sources:
     default_query_days: 30
 ```
 
-`require_query_filter: true` は、検索時に日付filterを要求するための安全設定です。全期間検索はユーザーが明示した場合だけにします。
+`require_query_filter: true` は、検索時に日付 filter を要求するための安全設定です。全期間検索はユーザーが明示した場合だけにします。
 
-### 改造前に見るファイル
+4. Ollama モデルを用意し、起動します。
+
+```bash
+ollama pull llama3.2
+KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward start
+KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME" ./knowledgeforward status
+```
+
+Macでは `http://127.0.0.1:8765/` を開きます。iPhoneでは `status` の `iPhone URL` を開きます。Web UIの Token 欄には private runtime の `config.yaml` の `auth.token` を貼り付けます。
+
+## private runtime
+
+private runtime は、公開 repo と個人 runtime を分けるためのローカル専用ディレクトリです。実運用ではここに `config.yaml`、DB、ログ、PID、Ollama 管理ファイルを置きます。
+
+repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime として互換用に残っていますが、実運用では非推奨です。公開対象は tracked files だけにしてください。repo-local に実設定やDBがある場合は、自動移行されないため、内容を確認して private runtime 側へ手動で移してください。
+
+設定ファイルの優先順は次の通りです。
+
+1. Python API などから渡された明示引数
+2. `KNOWLEDGE_FORWARD_CONFIG`
+3. `KNOWLEDGE_FORWARD_HOME/config.yaml`
+4. repo-local `config.yaml`
+
+通常は `KNOWLEDGE_FORWARD_HOME` だけで十分です。別名の config を使う場合は `KNOWLEDGE_FORWARD_CONFIG` を使えます。
+
+## 改造前に見るファイル
 
 - `knowledge_forward/config.py`
 - `knowledge_forward/source_safety.py`
@@ -144,7 +126,7 @@ allowed_sources:
 
 特に、読み込み対象フォルダの検証、token、ログ、DB、Tailscale公開範囲を変更する場合は、先に `SECURITY.md` の境界と矛盾しないか確認してください。
 
-### 改造前チェック
+## 改造前チェック
 
 変更前後で最低限次を実行してください。
 

@@ -1,3 +1,11 @@
+# Sample / legacy example config.
+# For real use, prefer:
+#   ./knowledgeforward init-runtime "$HOME/.knowledgeforward-local"
+# and edit the generated private runtime config outside the public repo.
+#
+# This file is safe sample config for tests and examples. Do not copy real
+# tokens, local absolute paths, databases, logs, or private notes into the repo.
+
 server:
   host: 127.0.0.1
   port: 8765

@@ -1,6 +1,6 @@
 # Security Policy
 
-KnowledgeForward is local-first software intended to index only explicitly allowed local folders and to use local Ollama models by default. Security reports should never include real private notes, API tokens, local `config.yaml` contents, SQLite databases, logs, or screenshots that expose private data.
+KnowledgeForward is local-first software intended to index only explicitly allowed local folders and to use local Ollama models by default. Security reports should never include real private notes, API tokens, private runtime `config.yaml` contents, SQLite databases, logs, PID files, local absolute paths, or screenshots that expose private data.
 
 ## Supported Versions
 
@@ -27,7 +27,10 @@ KnowledgeForward should preserve these boundaries:
 - No external search API calls by default.
 - No telemetry by default.
 - Only folders explicitly listed in `config.yaml` may be indexed.
-- `config.yaml`, `data/`, `tmp/`, logs, SQLite databases, and real private notes must not be committed.
+- Real runtime files must stay outside the public repository. This includes private runtime `config.yaml`, `data/`, `logs/`, `run/`, PID files, Ollama management files, SQLite databases, and real private notes.
+- `KNOWLEDGE_FORWARD_HOME` should point to a private runtime outside the public repository for real use.
+- `KNOWLEDGE_FORWARD_CONFIG` may point to an explicit config file, but that config must remain local and must not be committed.
+- repo-local `config.yaml`, `data/`, and `tmp/` are legacy compatibility paths only and should not be used for real private data.
 - The server should bind to `127.0.0.1` by default.
 - Remote phone access should use a private network path such as Tailscale Serve, not direct public exposure.
 - Retrieved documents are untrusted evidence, not executable instructions.
