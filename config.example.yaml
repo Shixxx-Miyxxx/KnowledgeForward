@@ -1,0 +1,47 @@
+server:
+  host: 127.0.0.1
+  port: 8765
+
+auth:
+  token: replace-with-a-long-random-token
+
+database:
+  path: ./data/knowledgeforward.sqlite3
+
+ollama:
+  base_url: http://127.0.0.1:11434
+  model: llama3.2
+  timeout_seconds: 180
+  temperature: 0.2
+  hide_thinking: true
+
+indexing:
+  max_file_bytes: 1048576
+  chunk_max_chars: 1400
+  chunk_overlap_chars: 160
+  excluded_dirs:
+    - .git
+    - .obsidian
+    - node_modules
+    - attachments
+    - .venv
+    - venv
+    - __pycache__
+  markdown_extensions:
+    - .md
+    - .markdown
+
+allowed_sources:
+  - name: sample_vault
+    path: ./fixtures/sample_vault
+    type: obsidian
+    enabled: true
+
+  # For a real dated data root, copy this block into local config.yaml and
+  # replace /path/to with an explicit local path. Do not commit config.yaml.
+  # - name: knowledge_01_data
+  #   path: /path/to/Knowledge/01_data
+  #   type: obsidian
+  #   enabled: true
+  #   require_query_filter: true
+  #   default_query_days: 30
