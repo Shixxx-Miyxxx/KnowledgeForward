@@ -54,6 +54,27 @@ def test_resolve_runtime_paths_preserves_legacy_repo_tmp(tmp_path: Path, monkeyp
     assert paths.is_external is False
 
 
+def test_resolve_runtime_paths_auto_detects_project_private_runtime(tmp_path: Path, monkeypatch) -> None:
+    repo = tmp_path / "30_repo" / "KnowledgeForward"
+    runtime = tmp_path / "40_private_runtime" / "KnowledgeForward-local"
+    repo.mkdir(parents=True)
+    runtime.mkdir(parents=True)
+    config_path = runtime / "config.yaml"
+    config_path.write_text("auth:\n  token: test-token\nallowed_sources: []\n", encoding="utf-8")
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_CONFIG", raising=False)
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_HOME", raising=False)
+    monkeypatch.chdir(repo)
+
+    paths = resolve_runtime_paths(repo)
+
+    assert paths.config_path == config_path
+    assert paths.runtime_home == runtime
+    assert paths.log_file == runtime / "logs" / "knowledgeforward.log"
+    assert paths.pid_file == runtime / "run" / "knowledgeforward.pid"
+    assert paths.is_external is True
+    assert paths.config_source == "project_runtime"
+
+
 def test_init_runtime_creates_private_runtime_without_overwriting(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     runtime = tmp_path / "KnowledgeForward-local"

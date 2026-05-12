@@ -310,6 +310,22 @@ show_tailscale() {
   fi
 }
 
+show_git_path_state() {
+  local label="$1"
+  local relative_path="$2"
+  local absolute_path="$REPO_ROOT/$relative_path"
+
+  if [ ! -e "$absolute_path" ]; then
+    status_line "$label" "absent"
+  elif git ls-files --error-unmatch "$relative_path" >/dev/null 2>&1; then
+    status_line "$label" "TRACKED (should be untracked)"
+  elif git check-ignore -q "$relative_path"; then
+    status_line "$label" "untracked and ignored"
+  else
+    status_line "$label" "untracked but not ignored"
+  fi
+}
+
 show_git_safety() {
   local git_status
 
@@ -326,13 +342,7 @@ show_git_safety() {
     status_line "Runtime location" "legacy repo-local (prefer KNOWLEDGE_FORWARD_HOME outside repo)"
   fi
 
-  if git ls-files --error-unmatch config.yaml >/dev/null 2>&1; then
-    status_line "repo config.yaml Git state" "TRACKED (should be untracked)"
-  elif git check-ignore -q config.yaml; then
-    status_line "repo config.yaml Git state" "untracked and ignored"
-  else
-    status_line "repo config.yaml Git state" "untracked but not ignored"
-  fi
+  show_git_path_state "repo config.yaml Git state" "config.yaml"
 
   if [ -f "$REPO_ROOT/config.yaml" ] || [ -d "$REPO_ROOT/data" ] || [ -d "$REPO_ROOT/tmp" ]; then
     status_line "Repo-local runtime files" "present; do not publish by folder copy"
@@ -340,13 +350,7 @@ show_git_safety() {
     status_line "Repo-local runtime files" "absent"
   fi
 
-  if git ls-files -- tmp/private_test_vault | grep -q .; then
-    status_line "tmp/private_test_vault Git state" "TRACKED (should be untracked)"
-  elif git check-ignore -q tmp/private_test_vault; then
-    status_line "tmp/private_test_vault Git state" "untracked and ignored"
-  else
-    status_line "tmp/private_test_vault Git state" "untracked but not ignored"
-  fi
+  show_git_path_state "tmp/private_test_vault Git state" "tmp/private_test_vault"
 
   section "git status --short"
   git_status="$(git status --short)"

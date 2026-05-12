@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from knowledge_forward.config import ConfigError, load_config
+from knowledge_forward.config import ConfigError, load_config, resolve_config_path
 
 
 def test_default_token_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -80,6 +80,22 @@ allowed_sources:
 
     assert config.config_path == tmp_path / "config.yaml"
     assert config.database.path == tmp_path / "index.sqlite3"
+
+
+def test_resolve_config_path_auto_detects_project_private_runtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "30_repo" / "KnowledgeForward"
+    runtime = tmp_path / "40_private_runtime" / "KnowledgeForward-local"
+    repo.mkdir(parents=True)
+    runtime.mkdir(parents=True)
+    config_path = runtime / "config.yaml"
+    config_path.write_text("auth:\n  token: test-token\nallowed_sources: []\n", encoding="utf-8")
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_CONFIG", raising=False)
+    monkeypatch.delenv("KNOWLEDGE_FORWARD_HOME", raising=False)
+    monkeypatch.chdir(repo)
+
+    assert resolve_config_path() == config_path
 
 
 def test_knowledge_forward_config_env_selects_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

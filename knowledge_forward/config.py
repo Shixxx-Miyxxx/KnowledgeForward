@@ -22,6 +22,9 @@ INSECURE_AUTH_TOKENS = frozenset(
 )
 CONFIG_PATH_ENV = "KNOWLEDGE_FORWARD_CONFIG"
 RUNTIME_HOME_ENV = "KNOWLEDGE_FORWARD_HOME"
+PROJECT_REPO_DIR_NAME = "30_repo"
+PROJECT_RUNTIME_DIR_NAME = "40_private_runtime"
+PROJECT_RUNTIME_SUFFIX = "-local"
 
 
 @dataclass(frozen=True)
@@ -89,7 +92,7 @@ class AppConfig:
     allowed_sources: tuple[SourceConfig, ...]
 
 
-def resolve_config_path(config_path: str | Path | None = None) -> Path:
+def resolve_config_path(config_path: str | Path | None = None, *, repo_root: str | Path | None = None) -> Path:
     if config_path is not None:
         return Path(config_path).expanduser().resolve()
 
@@ -101,7 +104,22 @@ def resolve_config_path(config_path: str | Path | None = None) -> Path:
     if env_home:
         return (Path(env_home).expanduser() / "config.yaml").resolve()
 
+    project_runtime_config = discover_project_runtime_config(repo_root)
+    if project_runtime_config is not None:
+        return project_runtime_config
+
     return Path("config.yaml").expanduser().resolve()
+
+
+def discover_project_runtime_config(repo_root: str | Path | None = None) -> Path | None:
+    repo = Path(repo_root).expanduser().resolve() if repo_root is not None else Path.cwd().resolve()
+    if repo.parent.name != PROJECT_REPO_DIR_NAME:
+        return None
+
+    candidate = repo.parent.parent / PROJECT_RUNTIME_DIR_NAME / f"{repo.name}{PROJECT_RUNTIME_SUFFIX}" / "config.yaml"
+    if candidate.exists():
+        return candidate.resolve()
+    return None
 
 
 def load_config(config_path: str | Path | None = None) -> AppConfig:

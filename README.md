@@ -38,13 +38,14 @@ python -m pip install -r requirements.txt
 
 ## 安全境界
 
-実運用の `config.yaml`、DB、ログ、PID、実ノートは KnowledgeForward の repo ディレクトリ外、または少なくとも Git 管理外に置いてください。標準構成では `KNOWLEDGE_FORWARD_HOME` を private runtime として使います。
+実運用の `config.yaml`、DB、ログ、PID、実ノートは KnowledgeForward の repo ディレクトリ外、または少なくとも Git 管理外に置いてください。
 
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
-export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
+
+標準以外の場所に private runtime を作った場合は、そのコマンドだけ `KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"` を付けて実行できます。`~/.zshrc` などへの永続設定は必須ではありません。
 
 `init-runtime` は private runtime に次を作ります。既存ファイルは上書きしません。
 
@@ -62,9 +63,10 @@ export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 1. Python API などから渡された明示引数
 2. `KNOWLEDGE_FORWARD_CONFIG`
 3. `KNOWLEDGE_FORWARD_HOME/config.yaml`
-4. repo-local `config.yaml`
+4. 自動検出された private runtime の `config.yaml`
+5. repo-local `config.yaml`
 
-起動系スクリプトは `KNOWLEDGE_FORWARD_HOME` または `KNOWLEDGE_FORWARD_CONFIG` から runtime path を解決し、PID、ログ、Ollama 管理ファイルを private runtime 側の `run/` と `logs/` に置きます。`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` を併用した場合、config は `KNOWLEDGE_FORWARD_CONFIG` を使い、runtime home は `KNOWLEDGE_FORWARD_HOME` を使います。
+起動系スクリプトは `KNOWLEDGE_FORWARD_HOME`、`KNOWLEDGE_FORWARD_CONFIG`、または自動検出された private runtime から runtime path を解決し、PID、ログ、Ollama 管理ファイルを private runtime 側の `run/` と `logs/` に置きます。`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` を併用した場合、config は `KNOWLEDGE_FORWARD_CONFIG` を使い、runtime home は `KNOWLEDGE_FORWARD_HOME` を使います。
 
 ## 最短セットアップ
 
@@ -73,7 +75,6 @@ export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
-export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
 2. private runtime の `config.yaml` を編集し、実データ用 source をユーザーが選んだ小さめの Markdown フォルダにします。ホームディレクトリ全体、クラウド同期 root 全体、repo root は指定しないでください。
@@ -160,7 +161,7 @@ source path が広すぎる、存在しない、symlink、`require_query_filter`
 
 repo-local runtime 警告が出る:
 
-`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定の場合、互換用に repo root 直下の `config.yaml` と `tmp/` を使おうとします。この legacy repo-local runtime は実運用では非推奨です。`./knowledgeforward init-runtime "$HOME/.knowledgeforward-local"` で private runtime を作り、`KNOWLEDGE_FORWARD_HOME` を設定してください。
+`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定で、private runtime も自動検出できない場合、互換用に repo root 直下の `config.yaml` と `tmp/` を使おうとします。この legacy repo-local runtime は実運用では非推奨です。`./knowledgeforward init-runtime "$HOME/.knowledgeforward-local"` で private runtime を作り、必要なコマンドに `KNOWLEDGE_FORWARD_HOME="$HOME/.knowledgeforward-local"` を付けて実行してください。
 
 ## 開発
 

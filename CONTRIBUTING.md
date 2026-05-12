@@ -10,10 +10,9 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 RUNTIME_HOME="$HOME/.knowledgeforward-local-dev"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
-export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
-Use the generated private runtime for local manual runs. Do not put real notes, tokens, logs, SQLite databases, PID files, or local absolute paths in the repository directory or Git tracking. Tests should use `tmp_path`, `fixtures/sample_vault`, or synthetic data instead of a developer's real runtime.
+Use the generated private runtime for local manual runs. If it is not auto-detected, prefix manual commands with `KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"`. Do not put real notes, tokens, logs, SQLite databases, PID files, or local absolute paths in the repository directory or Git tracking. Tests should use `tmp_path`, `fixtures/sample_vault`, or synthetic data instead of a developer's real runtime.
 
 ## Checks
 

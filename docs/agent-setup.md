@@ -28,7 +28,7 @@ KnowledgeForward は、明示的に許可されたローカル Markdown フォ�
 - telemetry は使わない。
 - サーバーは `127.0.0.1:8765` に bind する。
 - iPhone から使う場合は Tailscale Serve を使い、Tailscale Funnel は使わない。
-- 実運用の `config.yaml`、DB、ログ、PID、実ノートは `KNOWLEDGE_FORWARD_HOME` で KnowledgeForward repo ディレクトリ外、または少なくとも Git 管理外に置く。
+- 実運用の `config.yaml`、DB、ログ、PID、実ノートは KnowledgeForward repo ディレクトリ外、または少なくとも Git 管理外に置く。
 - repo-local `config.yaml`、`data/`、`tmp/` は legacy repo-local runtime であり、実運用では使わない。
 
 ## 利用する専用コマンド
@@ -101,7 +101,6 @@ python -m pip install -r requirements.txt
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
-export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
 
 `init-runtime` は次を作成します。既存ファイルは上書きしません。
@@ -113,7 +112,7 @@ export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 - `.gitignore`
 - `sample_vault/`
 
-以後の `start`、`status`、`stop` は同じ `KNOWLEDGE_FORWARD_HOME` を指定して実行します。
+以後の `start`、`status`、`stop` で runtime が自動検出されない場合は、そのコマンドだけ同じ `KNOWLEDGE_FORWARD_HOME` を指定して実行します。ユーザーから明示依頼がない限り、`~/.zshrc` などの shell profile は編集しないでください。
 
 repo root 直下の `config.yaml`、`data/`、`tmp/` を使う旧方式は互換用に残していますが、実運用では非推奨です。既に repo-local に実設定や DB がある場合も自動移行はしません。ユーザー確認のうえで、private runtime 側へ手動で移してください。
 
@@ -124,9 +123,10 @@ repo root 直下の `config.yaml`、`data/`、`tmp/` を使う旧方式は互換
 1. Python API などから渡された明示引数
 2. `KNOWLEDGE_FORWARD_CONFIG`
 3. `KNOWLEDGE_FORWARD_HOME/config.yaml`
-4. repo-local `config.yaml`
+4. 自動検出された private runtime の `config.yaml`
+5. repo-local `config.yaml`
 
-通常は `KNOWLEDGE_FORWARD_HOME` だけを使います。別名の config ファイルを使う上級運用では `KNOWLEDGE_FORWARD_CONFIG` を使えます。`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` を併用すると、config は `KNOWLEDGE_FORWARD_CONFIG` を読み、PID、ログ、Ollama 管理ファイルは `KNOWLEDGE_FORWARD_HOME` の `run/` と `logs/` に置きます。
+別名の config ファイルを使う上級運用では `KNOWLEDGE_FORWARD_CONFIG` を使えます。標準以外の runtime 場所を使う場合は、そのコマンドだけ `KNOWLEDGE_FORWARD_HOME` を指定できます。`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` を併用すると、config は `KNOWLEDGE_FORWARD_CONFIG` を読み、PID、ログ、Ollama 管理ファイルは `KNOWLEDGE_FORWARD_HOME` の `run/` と `logs/` に置きます。
 
 ### 4. token を設定する
 

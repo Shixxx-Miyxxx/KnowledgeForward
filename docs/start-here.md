@@ -64,8 +64,9 @@ python -m pip install -r requirements.txt
 ```bash
 RUNTIME_HOME="$HOME/.knowledgeforward-local"
 ./knowledgeforward init-runtime "$RUNTIME_HOME"
-export KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"
 ```
+
+標準以外の場所に private runtime を作った場合は、そのコマンドだけ `KNOWLEDGE_FORWARD_HOME="$RUNTIME_HOME"` を付けて実行できます。`~/.zshrc` などへの永続設定は必須ではありません。
 
 `init-runtime` は private runtime に次を作ります。既存ファイルは上書きしません。
 
@@ -109,11 +110,12 @@ private runtime は、KnowledgeForward の repo と個人 runtime を分ける�
 1. Python API などから渡された明示引数
 2. `KNOWLEDGE_FORWARD_CONFIG`
 3. `KNOWLEDGE_FORWARD_HOME/config.yaml`
-4. repo-local `config.yaml`
+4. 自動検出された private runtime の `config.yaml`
+5. repo-local `config.yaml`
 
-通常は `KNOWLEDGE_FORWARD_HOME` だけで十分です。別名の config を使う場合は `KNOWLEDGE_FORWARD_CONFIG` を使えます。
+別名の config を使う場合は `KNOWLEDGE_FORWARD_CONFIG` を使えます。標準以外の runtime 場所を使う場合は、そのコマンドだけ `KNOWLEDGE_FORWARD_HOME` を付けて実行できます。
 
-`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定の場合、互換用に repo-local `config.yaml`、`data/`、`tmp/` を使う legacy runtime へ fallback します。実運用では非推奨なので、警告が出た場合は private runtime へ移してください。
+`KNOWLEDGE_FORWARD_HOME` と `KNOWLEDGE_FORWARD_CONFIG` が未設定で、private runtime も自動検出できない場合、互換用に repo-local `config.yaml`、`data/`、`tmp/` を使う legacy runtime へ fallback します。実運用では非推奨なので、警告が出た場合は private runtime へ移してください。
 
 ## 改造前に見るファイル
 

@@ -9,7 +9,7 @@ import shlex
 import shutil
 from typing import Iterable
 
-from .config import CONFIG_PATH_ENV, RUNTIME_HOME_ENV, resolve_config_path
+from .config import CONFIG_PATH_ENV, RUNTIME_HOME_ENV, discover_project_runtime_config, resolve_config_path
 
 
 @dataclass(frozen=True)
@@ -42,13 +42,13 @@ def resolve_runtime_paths(repo_root: str | Path, config_path: str | Path | None 
     repo = Path(repo_root).expanduser().resolve()
     env_home = os.environ.get(RUNTIME_HOME_ENV, "").strip()
     env_config = os.environ.get(CONFIG_PATH_ENV, "").strip()
-    resolved_config = resolve_config_path(config_path)
-    config_source = _config_source(config_path, env_config, env_home)
+    resolved_config = resolve_config_path(config_path, repo_root=repo)
+    config_source = _config_source(config_path, env_config, env_home, repo, resolved_config)
     is_external = config_source != "legacy"
 
     if env_home:
         runtime_home = Path(env_home).expanduser().resolve()
-    elif config_source in {"argument", "env_config"}:
+    elif config_source in {"argument", "env_config", "project_runtime"}:
         runtime_home = resolved_config.parent
     else:
         runtime_home = repo / "tmp"
@@ -141,13 +141,22 @@ def shell_env_lines(paths: RuntimePaths) -> tuple[str, ...]:
     return tuple(f"{key}={shlex.quote(str(value))}" for key, value in values.items())
 
 
-def _config_source(config_path: str | Path | None, env_config: str, env_home: str) -> str:
+def _config_source(
+    config_path: str | Path | None,
+    env_config: str,
+    env_home: str,
+    repo_root: Path,
+    resolved_config: Path,
+) -> str:
     if config_path is not None:
         return "argument"
     if env_config:
         return "env_config"
     if env_home:
         return "env_home"
+    project_runtime_config = discover_project_runtime_config(repo_root)
+    if project_runtime_config is not None and project_runtime_config == resolved_config:
+        return "project_runtime"
     return "legacy"
 
 
@@ -269,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Skipped existing: {path}")
         for warning in result.warnings:
             print(f"WARN: {warning}")
-        print("Set KNOWLEDGE_FORWARD_HOME to this runtime home before start/status/stop.")
+        print("If this runtime is not auto-detected by your layout, set KNOWLEDGE_FORWARD_HOME to this runtime home.")
         return 0
     return 2
 
