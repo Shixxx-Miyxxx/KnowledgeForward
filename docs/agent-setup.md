@@ -291,7 +291,7 @@ default_query_days: 30
 
 ## 検証
 
-セットアップ作業後、可能な範囲で次を実行します。security 系コマンドは開発者・メンテナ向けの repo 監査です。Web UI の `/security` は token 認証後に同じ repo 監査を full 実行します。通常利用には不要ですが、起動中のローカル環境から確認できます。
+セットアップ作業後、可能な範囲で次を実行します。security 系コマンドは開発者・メンテナ向けの repo 監査です。Web UI/API の `/security` は通常利用では無効で、開発時に `KNOWLEDGE_FORWARD_ENABLE_DEV_SECURITY=1` を設定した場合だけ有効になります。
 
 ```bash
 ./knowledgeforward test
