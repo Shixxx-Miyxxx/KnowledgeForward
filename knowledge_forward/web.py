@@ -1,4 +1,4 @@
-INDEX_HTML_TEMPLATE = """<!doctype html>
+INDEX_HTML = """<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8">
@@ -928,11 +928,13 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
       health: "/health",
       reindex: "/reindex",
       search: "/search",
-      ask: "/ask"__DEV_SECURITY_API_PATH__
+      ask: "/ask",
+      security: "/security/check"
     });
     const COMMANDS = Object.freeze([
       { name: "/reindex", insertText: "/reindex" },
-      { name: "/diagnostics", insertText: "/diagnostics" }__DEV_SECURITY_COMMAND__
+      { name: "/diagnostics", insertText: "/diagnostics" },
+      { name: "/security", insertText: "/security" }
     ]);
     const DEFAULT_FILTERS = Object.freeze({
       preset: "last_30",
@@ -1111,7 +1113,29 @@ INDEX_HTML_TEMPLATE = """<!doctype html>
         return;
       }
 
-__DEV_SECURITY_HANDLER__
+      if (rawText.toLowerCase().startsWith("/security")) {
+        closeCommandMenu();
+        const match = rawText.toLowerCase().match(/^[/]security$/);
+        appendUserMessage(rawText);
+        chatInput.value = "";
+        autoResizeInput();
+        updateSendState();
+        const row = appendThinkingPlaceholder("Security診断中");
+        setBusy(true);
+        try {
+          if (!match) throw new Error("使い方: /security");
+          const profile = "full";
+          const data = await postJson(API_PATHS.security, { profile });
+          replaceWithSecurityResult(row, data);
+        } catch (error) {
+          replaceWithError(row, error);
+        } finally {
+          setBusy(false);
+          chatInput.focus();
+        }
+        return;
+      }
+
 
       if (rawText.startsWith("/")) {
         closeCommandMenu();
@@ -2013,50 +2037,3 @@ __DEV_SECURITY_HANDLER__
   </script>
 </body>
 </html>"""
-
-
-DEV_SECURITY_API_PATH_JS = ',\n      security: "/security/check"'
-DEV_SECURITY_COMMAND_JS = ',\n      { name: "/security", insertText: "/security" }'
-DEV_SECURITY_HANDLER_JS = """      if (rawText.toLowerCase().startsWith("/security")) {
-        closeCommandMenu();
-        const match = rawText.toLowerCase().match(/^[/]security$/);
-        appendUserMessage(rawText);
-        chatInput.value = "";
-        autoResizeInput();
-        updateSendState();
-        const row = appendThinkingPlaceholder("Security診断中");
-        setBusy(true);
-        try {
-          if (!match) throw new Error("使い方: /security");
-          const profile = "full";
-          const data = await postJson(API_PATHS.security, { profile });
-          replaceWithSecurityResult(row, data);
-        } catch (error) {
-          replaceWithError(row, error);
-        } finally {
-          setBusy(false);
-          chatInput.focus();
-        }
-        return;
-      }
-"""
-
-
-def render_index_html(enable_dev_security: bool = False) -> str:
-    return (
-        INDEX_HTML_TEMPLATE.replace(
-            "__DEV_SECURITY_API_PATH__",
-            DEV_SECURITY_API_PATH_JS if enable_dev_security else "",
-        )
-        .replace(
-            "__DEV_SECURITY_COMMAND__",
-            DEV_SECURITY_COMMAND_JS if enable_dev_security else "",
-        )
-        .replace(
-            "__DEV_SECURITY_HANDLER__",
-            DEV_SECURITY_HANDLER_JS if enable_dev_security else "",
-        )
-    )
-
-
-INDEX_HTML = render_index_html(False)
